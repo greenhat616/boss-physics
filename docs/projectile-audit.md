@@ -51,19 +51,49 @@
 - 带 `Warning` 的弹体是预警标记，绝对不能改成会被墙挡。
 - 回旋镖和跟踪弹（`ReaperScythe`、`EvilsProtectorAttack2`、`CrescentDisc`）撞墙后的行为要单独实测：回旋镖撞墙会走 `returnToOwner()`。
 
-## 4. 运行时审计步骤（待完成）
+## 4. 运行时审计方法
 
-1. 构建：`JAVA_HOME=/g/scoop/apps/temurin17-jdk/current ./gradlew runClient`（会带 `-dev -mod build/jar/`）
-2. 进一个**单人**世界（单人模式下服务端和客户端在同一个 JVM 里，才能对比两端），打开聊天输入 `/bp debug on`
-3. 依次打 Evils Protector、Crystal Dragon、Swamp Guardian、Queen Spider，每个都让 boss 把所有攻击放一遍。期间试着**跑远**，让 boss 离开屏幕后再靠近，以触发 owner 未加载的情况
-4. 输入 `/bp debug dump`，结果写到 `%APPDATA%/Necesse/bossphysics-audit.csv`（用 `-datadir` 时写到对应目录），游戏日志里也有每种新组合第一次出现时的 `[BossPhysics] new ...` 行
-5. 把 CSV 贴进下面第 5 节，重点看：
-   - 同一个弹体的 server 行和 client 行，`owner`、`ownerIsBoss`、`isSolid` 是否一致
-   - `owner` 是否出现 `UNRESOLVED`：出现就说明 M1 不能只靠 owner 判断，要退回"只按弹体类判断"
-   - 爆炸行的 owner 和 `destroysObjects`
+全自动，不需要手动操作游戏：
+
+```bash
+tools/autotest.sh [boss1,boss2,...] [每个 boss 的秒数，默认 40]
+```
+
+脚本做的事：
+1. 构建 mod，在 `build/autotest/data` 新建数据目录（**新存档、新人物**，不碰你自己的存档、设置和 mod 列表）
+2. 生成 `modlist.data`：只启用本 mod，创意工坊订阅的 mod 全部禁用
+3. 写一份 1280×720 窗口、静音的 `settings.cfg`
+4. 以 `-load bptest -character BossTester` 启动客户端，自动创建世界并进入单人模式。原版 `-character` 只在已有其他人物时才会新建，所以 mod 在 `postInit` 里先建好人物（`TestCharacter`）
+5. mod 读到 `-Dbossphysics.autotest` 后，由 `AutoTest` 在 `Server.tick()` 里按脚本执行：玩家无敌 → 时间调到午夜 → 在 700 像素外生成 boss → 战斗一半时把玩家传送到 4000 像素外 4 秒再传回 → 移除 boss → 下一个
+6. 全部结束后写出 `build/autotest/data/bossphysics-audit.csv` 并退出游戏
+
+画面检查：`pwsh tools/screenshot.ps1` 只截测试客户端窗口（用 `PrintWindow`，窗口被遮挡也能截）。
+
+手动调试可用 `/bp spawnboss <mobid> [距离]` 和 `/bp autotest <start|stop> [boss 列表]`。
 
 CSV 各列：`kind, side, id, class, superclass, owner, ownerIsBoss, isSolid, canBounce, canHitMobs, canBreakObjects, destroysObjects, destroysTiles, toolTier, count`。
 
-## 5. 运行时结果
+## 5. 运行时结果（2026-10-14，两次运行，每个 boss 40 秒）
 
-（待采集）
+第二次运行（已修正 Evils Protector 白天逃走的问题）的完整结果。server 行和 client 行**全部一一对应**，这里合并成一行：
+
+| 弹体 / 爆炸 | owner | ownerIsBoss | isSolid | canHitMobs | 次数（每端） |
+|---|---|---|---|---|---|
+| `evilsprotector1`（`EvilsProtectorAttack1Projectile`） | evilsprotector | true | false | true | 42 |
+| `crystaldragonshard` | crystaldragon | true | false | true | 76 |
+| `crystalgolemspawn` | crystaldragon | true | false | false | 6 |
+| `crystalgolembeam`（`LaserProjectile`） | crystalgolem | **false** | true | true | 29 |
+| `swampboulder` | swampguardian | true | false | false | 28 |
+| 爆炸 `boulderhit` | swampguardian | true | — | — | 26（`destroysObjects = false`，`toolTier = 0`） |
+| `queenspideregg` | queenspider | true | false | false | 4 |
+| `queenspiderspit` | queenspider | true | false | false | 6 |
+| `zombiearrow` | zombiearcher | false | true | true | 16（夜晚刷出的普通怪，无关） |
+
+结论：
+1. **客户端没有出现 `UNRESOLVED`**，两端的 owner、`isSolid` 完全一致。M1 可以按"owner 是 boss + 弹体在白名单"判断。
+   - 局限：这是单人模式。传送离开期间，Swamp Guardian 和 Queen Spider 在第一次运行中自己消失了，所以"boss 在客户端卸载后又发射弹体"这种情况覆盖得不充分。联机实测留到 M1 验收时再做
+2. **静态审计的分类都得到了验证**：抛物线 / 刷怪弹体都是 `canHitMobs = false`；直射的 `evilsprotector1`、`crystaldragonshard` 是 `canHitMobs = true` 且 `isSolid = false`，是 M1 的首批白名单
+3. **boss 召唤出来的小怪不算 boss**：水晶傀儡的光束 owner 是 `crystalgolem`（`isBoss = false`），本来就会被墙挡（`isSolid = true`）。是否把"boss 召唤物"也纳入 M2 拆墙，留到 M2 决定
+4. **`boulderhit` 爆炸已确认 owner 能解析为 swampguardian**，是 M3 的首个目标
+5. 40 秒内没有观察到 `EvilsProtectorAttack2Projectile`（第二阶段的跟踪弹）。要覆盖它需要更长的战斗时间，或者先把 boss 打到半血
+6. 次数小的差异（第一次运行 `crystalgolembeam` 服务端 40、客户端 37）是测试结束时还没同步到客户端的弹体，不影响结论

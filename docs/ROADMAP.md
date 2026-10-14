@@ -40,15 +40,16 @@
   - 蠕虫类 boss：弹体 owner 是头部，身体节注册时 `isBoss = true`
   - **子类会在自己的 `init()` 里改写 `isSolid`**，所以挂钩点改为 `Projectile.postInit()`
 - [x] 弹体分类：**直射**（应被挡）、**抛物线 / 刷怪**（`canHitMobs = false`，保持原版）、**预警标记**（`*Warning*`，绝对不改）
-- [ ] 运行时审计：进游戏用 `/bp debug` 采集 4 个测试 boss 的数据，重点确认客户端是否会出现 owner 为 `UNRESOLVED`
+- [x] 自动测试：`tools/autotest.sh` 用新存档、新人物启动客户端，`AutoTest` 按脚本依次生成 boss 并采集；另有 `/bp spawnboss`、`/bp autotest` 和只截测试窗口的 `tools/screenshot.ps1`
+- [x] 运行时审计：4 个测试 boss 都已采集，客户端没有出现 `UNRESOLVED`，两端完全一致（审计文档第 5 节）
 
-验收：运行时 CSV 覆盖 4 个测试 boss 的全部攻击，并填入审计文档第 5 节。
+验收：已完成。遗留：`EvilsProtectorAttack2Projectile` 没在 40 秒内出现；联机下的 owner 解析留到 M1 验收时实测。
 
 ### M1 墙挡住 boss 弹体
 
 - [ ] patch `Projectile.postInit()` 的出口（复用 M0 的 `ProjectilePostInitPatch`）：满足"owner 不为 null、是 boss、弹体类在白名单"时，设 `isSolid = true`
 - [ ] 白名单的形式是"弹体 stringID → 规则"，规则包括：是否 solid、是否允许反弹（默认不反弹，`canBounce = false`）
-- [ ] 客户端 owner 为 null 的兜底方案（以 M0 的结论为准）：改为只按弹体类判断，不看 owner
+- [ ] 客户端 owner 为 null 的兜底：M0 单人实测未出现，保留"owner 为 null 时只按弹体类判断"作为防御性分支
 - [ ] 测试 boss 调整为 Evils Protector 和 Crystal Dragon（原来的 3 个里只有 Crystal Dragon 有可测的直射弹体）；Queen Spider 用来验证抛物线弹体不受影响
 - [ ] 回旋镖和跟踪弹撞墙后的行为单独验证（如 `ReaperScytheProjectile` 撞墙会返回 boss）
 
