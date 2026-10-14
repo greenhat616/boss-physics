@@ -1,6 +1,7 @@
 package bossphysics;
 
 import bossphysics.commands.BossPhysicsCommand;
+import bossphysics.debug.AttackAudit;
 import bossphysics.debug.AutoTest;
 import bossphysics.debug.TestCharacter;
 import necesse.engine.commands.CommandsManager;
@@ -21,6 +22,9 @@ public class BossPhysicsMod {
     }
 
     public void postInit() {
-        if (AutoTest.isRequestedAtLaunch()) TestCharacter.ensureExists();
+        if (AutoTest.isRequestedAtLaunch()) {
+            TestCharacter.ensureExists();
+            AttackAudit.startAutosave();
+        }
     }
 }

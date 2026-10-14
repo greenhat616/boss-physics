@@ -139,3 +139,32 @@ CSV 各列：`kind, side, id, class, superclass, owner, ownerIsBoss, isSolid, ca
 | `evilsprotector1` | 17 / 17 | 造成伤害 16 次，拆掉 1 面 |
 
 延迟带来的副作用：一面墙在被拆掉前的 250 毫秒内可以多挡几枚弹体。视觉上表现为"墙被连续命中后倒塌"，可以接受。
+
+## 8. 受保护地块与联机测试（2026-10-14）
+
+### 受保护地块
+
+`tools/autotest.sh evilsprotector,crystaldragon 40 walled on stonewall protect`：墙盒的每一格用 `regionManager.setTileProtected` 标为受保护，和 Chieftain 等 boss 场地预设的做法相同。
+
+| 弹体 | 撞墙（客户端 / 服务端） | 造成伤害 | 拆掉 | 被拒绝 |
+|---|---|---|---|---|
+| `evilsprotector1` | 28 / 28 | 0 | 0 | **28** |
+| `crystaldragonshard` | 24 / 24 | 0 | 0 | **24** |
+
+墙照样挡住弹体，但一面都没被打坏。原因是 `doObjectDamage` 在 `!obj.canPlaceOnProtectedLevels && level.isProtected(x, y)` 时把伤害置 0，而墙都不能放在受保护地块上。整关受保护的关卡（`DungeonArenaLevel`、`TempleArenaLevel`、`TrialRoomLevel`、Ascended 虚空）走同一个判断，没有单独测。
+
+### 联机
+
+`tools/autotest-mp.sh evilsprotector,crystaldragon 45 stonewall`：独立服务器（`Server.jar`，单独的 JVM）运行脚本，另一个客户端进程通过 `127.0.0.1:14179` 连进来。
+
+| 弹体 | 撞墙（客户端 / 服务端） | 打中玩家 | 拆墙结果（服务端） |
+|---|---|---|---|
+| `evilsprotector1` | 31 / 31 | 0 / 0 | 造成伤害 30，拆掉 1 |
+| `crystaldragonshard` | 27 / 27 | 1 / 3（全部在墙圈内生成） | 拆掉 19 面墙、1 棵云杉；`air` 6；定居点跳过 1 |
+
+结论：
+1. 联机下两端撞墙次数完全一致，250 毫秒延迟在真实网络连接下同样有效
+2. 客户端也能解析 owner：两端白名单都生效，没有出现一端挡住、另一端穿过的情况
+3. 联机客户端不运行 `AutoTest`，不知道墙盒的位置，所以墙圈内生成的命中在客户端记为普通的 `player`
+4. 碎片打中墙盒外的一棵云杉并把它拆了：树也是 layer 0 的带碰撞物体，`WallDamage` 没有区分墙和树。已记入 ROADMAP M5 B
+5. 有 1 次撞击落在定居点范围内（boss 追到了出生点村子附近），按设计跳过

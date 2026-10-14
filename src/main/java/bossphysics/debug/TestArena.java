@@ -46,7 +46,11 @@ public final class TestArena {
         return new Rectangle((centerTileX - WALL_RADIUS) * 32, (centerTileY - WALL_RADIUS) * 32, size, size);
     }
 
-    public static void build(Level level, int centerTileX, int centerTileY, String wallID) {
+    /**
+     * @param protectWalls marks the wall tiles protected the way boss arena presets do
+     *                     ({@code regionManager.setTileProtected}), so boss attacks must not be able to damage them
+     */
+    public static void build(Level level, int centerTileX, int centerTileY, String wallID, boolean protectWalls) {
         Server server = level.getServer();
         int grass = TileRegistry.getTileID("grasstile");
         int wall = ObjectRegistry.getObjectID(wallID);
@@ -59,6 +63,7 @@ public final class TestArena {
                 level.sendTileChangePacket(server, x, y, grass);
                 level.setObject(x, y, object);
                 level.sendObjectChangePacket(server, x, y, object);
+                level.regionManager.setTileProtected(x, y, protectWalls && object != 0);
             }
         }
     }

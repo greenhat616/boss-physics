@@ -138,6 +138,37 @@ public final class AttackAudit {
         record(row);
     }
 
+    /**
+     * For autotest launches: records from start-up and rewrites the CSV and summary every 5 seconds. A multiplayer
+     * test client runs in its own JVM where no autotest script ends the run, so this is how its side gets saved.
+     */
+    public static void startAutosave() {
+        enabled = true;
+        Thread thread = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(5000);
+                    List<String> lines = new ArrayList<>(dump());
+                    lines.addAll(summarizeHits());
+                    lines.addAll(summarizeWallDamage());
+                    writeLines(new File(GlobalData.appDataPath(), "bossphysics-summary.txt"), lines);
+                } catch (InterruptedException e) {
+                    return;
+                } catch (IOException | RuntimeException e) {
+                    GameLog.warn.println("[BossPhysics] audit autosave failed: " + e);
+                }
+            }
+        }, "BossPhysics-audit-autosave");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private static void writeLines(File file, List<String> lines) throws IOException {
+        try (PrintWriter out = new PrintWriter(file, StandardCharsets.UTF_8.name())) {
+            for (String line : lines) out.println(line);
+        }
+    }
+
     /** Writes the audit to {@code <appdata>/bossphysics-audit.csv} and returns the lines for the command log. */
     /**
      * Records a wall-damage attempt by a whitelisted projectile: {@code <object>:destroyed}, {@code :damaged},

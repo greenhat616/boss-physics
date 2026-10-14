@@ -24,7 +24,7 @@ import necesse.entity.mobs.Mob;
  * <p>Launching with {@code -Dbossphysics.autotest=boss1,boss2} starts a run as soon as a player is in the world, and
  * exits afterwards; {@code -Dbossphysics.autotest.seconds=N} sets the fight length per boss and
  * {@code -Dbossphysics.autotest.mode=walled} selects walled mode ({@code -Dbossphysics.autotest.wall=<objectid>} picks the
- * wall, default {@code stonewall}).
+ * wall, default {@code stonewall}; {@code -Dbossphysics.autotest.protectWalls=true} marks it protected).
  */
 public final class AutoTest {
 
@@ -34,6 +34,7 @@ public final class AutoTest {
     private static final String PROP_SECONDS = "bossphysics.autotest.seconds";
     private static final String PROP_MODE = "bossphysics.autotest.mode";
     private static final String PROP_WALL = "bossphysics.autotest.wall";
+    private static final String PROP_PROTECT = "bossphysics.autotest.protectWalls";
     private static final long SETTLE_MS = 8000;
     // Evils Protector despawns after 100 ticks (5s) with no player within 1280 pixels.
     private static final long AWAY_MS = 4000;
@@ -130,10 +131,11 @@ public final class AutoTest {
                     String wall = System.getProperty(PROP_WALL, "stonewall");
                     int arenaX = homeX / 32;
                     int arenaY = homeY / 32;
-                    TestArena.build(client.getLevel(), arenaX, arenaY, wall);
+                    boolean protect = Boolean.getBoolean(PROP_PROTECT);
+                    TestArena.build(client.getLevel(), arenaX, arenaY, wall, protect);
                     AttackAudit.setInsideArea(TestArena.wallBounds(arenaX, arenaY));
                     arenaBuilt = true;
-                    log("built walled arena at tile " + arenaX + "," + arenaY + " with " + wall);
+                    log("built walled arena at tile " + arenaX + "," + arenaY + " with " + wall + (protect ? " (protected)" : ""));
                 }
                 current = queue.poll();
                 ensureNight(server);
