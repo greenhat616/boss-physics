@@ -2,7 +2,10 @@
 # Multiplayer variant of tools/autotest.sh: a dedicated server (Server.jar, its own JVM) runs the scripted boss fights
 # in walled mode, and a separate client process connects to it over the network.
 #
-#   tools/autotest-mp.sh [boss1,boss2,...] [secondsPerBoss] [wallObjectID] [port]
+#   tools/autotest-mp.sh [boss1,boss2,...] [secondsPerBoss] [wallObjectID] [port] [key=value ...]
+#
+# key=value pairs go into the server's settings file only; the client keeps the defaults, so a run with e.g.
+# blockProjectiles=false checks that the server's settings reach the client (its wall hits must drop to 0 as well).
 #
 # Each side writes its own audit: build/autotest-mp/server/data and build/autotest-mp/client/data
 # (bossphysics-audit.csv, and bossphysics-summary.txt rewritten every 5 s). The client is stopped once the server
@@ -14,6 +17,7 @@ BOSSES="${1:-evilsprotector,crystaldragon}"
 SECONDS_PER_BOSS="${2:-45}"
 WALL="${3:-stonewall}"
 PORT="${4:-14179}"
+shift $(( $# < 4 ? $# : 4 ))
 
 OUT="$ROOT/build/autotest-mp"
 SERVER_DATA="$OUT/server/data"
@@ -23,6 +27,7 @@ build_mod
 rm -rf "$OUT"
 write_modlist "$SERVER_DATA"
 write_modlist "$CLIENT_DATA"
+write_mod_config "$SERVER_DATA" "" "$@"
 write_client_settings "$CLIENT_DATA"
 prepare_client_run_dir "$OUT/client/run"
 
@@ -71,3 +76,4 @@ echo "== server"
 print_audit_lines "$OUT/server.log" | grep -a "autotest \(started\|built\|hits\|walldamage \|DONE\)" || true
 echo "== client"
 cat "$CLIENT_DATA/bossphysics-summary.txt" 2>/dev/null | grep -a "^hits\|^walldamage" || echo "(no client summary)"
+grep -a "BossPhysics\] could not" "$OUT/client.log" "$OUT/server.log" || true

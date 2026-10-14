@@ -29,6 +29,15 @@ public final class BossSpawner {
         return mob;
     }
 
+    /** Spawns {@code mobID} at a level position; returns null if the mob ID is unknown. */
+    public static Mob spawnAt(ServerClient client, String mobID, float x, float y) {
+        if (!MobRegistry.mobExists(mobID)) return null;
+        Level level = client.getLevel();
+        Mob mob = MobRegistry.getMob(mobID, level);
+        level.entityManager.addMob(mob, x, y);
+        return mob;
+    }
+
     /** Same-level teleport, as {@code TeleportServerCommand} does it. */
     public static void teleport(ServerClient client, int x, int y) {
         client.playerMob.dx = 0.0F;

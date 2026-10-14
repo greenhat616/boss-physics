@@ -1,6 +1,7 @@
 package bossphysics.patches;
 
 import bossphysics.debug.AttackAudit;
+import bossphysics.debug.FightStats;
 import bossphysics.rules.ProjectileRules;
 import necesse.engine.modLoader.annotations.ModMethodPatch;
 import necesse.entity.projectile.Projectile;
@@ -21,5 +22,6 @@ public class ProjectilePostInitPatch {
                        @Advice.FieldValue(value = "canBounce", readOnly = false) boolean canBounce) {
         canBounce = ProjectileRules.apply(projectile, canBounce);
         AttackAudit.recordProjectile(projectile);
+        FightStats.onProjectileSpawned(projectile);
     }
 }

@@ -58,6 +58,11 @@ public final class AttackAudit {
         insideArea = area;
     }
 
+    /** Whether this projectile was spawned inside the walled box set by {@link #setInsideArea}. */
+    public static synchronized boolean spawnedInside(int projectileUniqueID) {
+        return spawnedInside.contains(projectileUniqueID);
+    }
+
     public static synchronized int size() {
         return entries.size();
     }
@@ -138,6 +143,22 @@ public final class AttackAudit {
         record(row);
     }
 
+    /** Records what {@code ExplosionRules} did with a boss explosion: {@code breaksobjects} or {@code skipped:<why>}. */
+    public static void recordExplosionRule(ExplosionEvent e, String outcome) {
+        if (!enabled) return;
+        record(String.join(",", "explosionrule", side(e.isServer(), e.isClient()), e.getStringID(),
+            e.getClass().getSimpleName(), e.getClass().getSuperclass().getSimpleName(), describeOwner(e.ownerMob, e.owner),
+            "true", "", "", "", "", "", "", String.valueOf(e.toolTier), outcome));
+    }
+
+    /** Records a mob tagged as a boss summon ({@code SummonRules}), with the tier it breaks walls with. */
+    public static void recordSummon(Mob summon, Mob boss, float toolTier) {
+        if (!enabled) return;
+        record(String.join(",", "summon", side(summon.isServer(), summon.isClient()), summon.getStringID(),
+            summon.getClass().getSimpleName(), summon.getClass().getSuperclass().getSimpleName(), boss.getStringID(),
+            "false", "", "", "", "", "", "", String.valueOf(toolTier), "tagged"));
+    }
+
     /**
      * For autotest launches: records from start-up and rewrites the CSV and summary every 5 seconds. A multiplayer
      * test client runs in its own JVM where no autotest script ends the run, so this is how its side gets saved.
@@ -169,7 +190,6 @@ public final class AttackAudit {
         }
     }
 
-    /** Writes the audit to {@code <appdata>/bossphysics-audit.csv} and returns the lines for the command log. */
     /**
      * Records a wall-damage attempt by a whitelisted projectile: {@code <object>:destroyed}, {@code :damaged},
      * {@code :refused} (0 damage applied: protected tile, tier too low, or vetoed by another mod) or {@code :none}
@@ -240,6 +260,7 @@ public final class AttackAudit {
         return lines;
     }
 
+    /** Writes the audit to {@code <appdata>/bossphysics-audit.csv} and returns the lines for the command log. */
     public static synchronized List<String> dump() throws IOException {
         File file = new File(GlobalData.appDataPath(), "bossphysics-audit.csv");
         List<String> lines = new ArrayList<>();

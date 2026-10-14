@@ -168,3 +168,62 @@ CSV 各列：`kind, side, id, class, superclass, owner, ownerIsBoss, isSolid, ca
 3. 联机客户端不运行 `AutoTest`，不知道墙盒的位置，所以墙圈内生成的命中在客户端记为普通的 `player`
 4. 碎片打中墙盒外的一棵云杉并把它拆了：树也是 layer 0 的带碰撞物体，`WallDamage` 没有区分墙和树。已记入 ROADMAP M5 B
 5. 有 1 次撞击落在定居点范围内（boss 追到了出生点村子附近），按设计跳过
+
+## 9. 平衡性测试（2026-10-14）
+
+框架和判定标准见 `docs/balance.md`。石墙，每场 45 秒，单人模式。
+
+### 基线：M1～M3（召唤物不拆墙），open / box / halfcover
+
+| boss | box 破墙时间 | box 剩余墙 | halfcover 破墙时间 | box 压力 | halfcover 压力 | 结果 |
+|---|---|---|---|---|---|---|
+| Evils Protector | 40.1 秒 | 23/24 | 31.8 秒 | 0.00 | 1.03 | PASS（靠 60 秒内破墙） |
+| Crystal Dragon | 7.1 秒 | 4/24 | 7.2 秒 | 1.00 | 1.33 | PASS |
+| Swamp Guardian | 17.3 秒 | 14/24 | 11.4 秒 | 0.90 | 1.02 | PASS |
+| Queen Spider | 没破 | 24/24 | 没破 | 1.17 | 1.17 | PASS |
+
+- Evils Protector 在墙盒里一次都没打中玩家，只能靠弹体慢慢拆墙，40 秒才破，接近 60 秒的上限
+- Queen Spider 的 56 次命中里有 44 次是"隔墙命中"：她体型大，站在墙外时近战判定能越过墙打到墙圈里的人（`mob:queenspider`）。这不是白名单弹体，不影响判定，但说明大体型 boss 的近战本身就能越墙
+- Crystal Dragon 7 秒破墙、45 秒拆掉 20/24 面，墙几乎只是拖延
+
+### M5：召唤物拆墙，加 doorbox
+
+| boss | box 破墙时间 | box 剩余墙 | box 压力 | halfcover 压力 | doorbox | 结果 |
+|---|---|---|---|---|---|---|
+| Evils Protector | 15.8 秒 | 21/24 | 1.03 | 0.79 | 14.9 秒破墙 | PASS |
+| Crystal Dragon | 7.0 秒 | 3/24 | 1.15 | 1.19 | 7.0 秒破墙 | PASS |
+| Swamp Guardian | 13.1 秒 | 14/24 | 0.87 | 0.87 | 7.9 秒破墙 | PASS |
+| Queen Spider | 21.1 秒 | 23/24 | 0.65 | 1.29 | 没破 | PASS |
+
+- Evils Protector 的 box 压力从 0.00 升到 1.03，破墙时间从 40 秒提前到 16 秒：传送门小怪会拆墙进来（`mob:portalminion` 的命中都发生在破墙之后）
+- Queen Spider 的蜘蛛幼崽在 box 里 21 秒拆开一面墙
+- 召唤物的标记：`portalminion` 64 只、`spiderhatchling` 12 只、`crystalgolem` 24 只。其中 19 只水晶傀儡离龙的身体节更近，误用了身体节的等级（1），已改为取头部的等级
+
+### 测试框架本身的问题
+
+- **boss 偶尔完全不行动**：一次 Queen Spider 的测试里，4 场（包括空地）她一发弹体、一次攻击都没有，导致误判 FAIL。后来记录了战斗结束时的位置：boss 正好停在生成点（+700, 0），玩家正好在原点，说明整个世界停住了。原因是单人模式默认 `pauseOnFocusLoss = true`，测试窗口一失去焦点（在别的窗口上点了一下）游戏就暂停，而本 mod 的测试脚本挂在 `Server.tick` 上，暂停时照样计时。修复：测试客户端的设置里关掉 `pauseOnFocusLoss` 和 `savePerformanceOnFocusLoss`；日志在世界暂停时打出警告；boss 整场没有任何弹体、没有命中（或提前离场）时换一块场地重打，最多 2 次，仍然如此就判 INVALID
+- 每个组合只跑一次，随机性大：同一设置下 Queen Spider 的 box 命中数在 1～61 之间波动。接近阈值的结果需要重跑
+
+### 最终一轮（门优先、修好暂停问题之后）
+
+| boss | box 破墙时间 | box 剩余墙 | box 压力 | halfcover 压力 | doorbox：召唤物拆门 / 拆墙 | 结果 |
+|---|---|---|---|---|---|---|
+| Evils Protector | 17.8 秒 | 21/24 | 0.63 | 0.91 | 2 / 0 | PASS |
+| Crystal Dragon | 7.0 秒 | 7/24 | 1.00 | 0.90 | 0 / 0（墙先被碎片打穿） | PASS |
+| Swamp Guardian | 12.5 秒 | 13/24 | 0.98 | 1.06 | 0 / 0（没有召唤物） | PASS |
+| Queen Spider | 16.7 秒 | 23/24 | 1.00 | 1.26 | 28 / 0 | PASS |
+
+- 门优先生效：改寻路代价前，蜘蛛幼崽在 doorbox 里拆门 3 次、拆墙 22 次；改后两轮分别是 21 / 0 和 28 / 0。半掩体里召唤物的拆除次数始终是 0，都是绕过去的
+- 门在 45～60 秒内都没被拆开：原版每格每秒最多吃约 10 点拆除伤害，召唤物断断续续地拆，中间超过 15 秒没被打时门还会回血。召唤物拆门的速度偏慢，留给 M5 C 调整
+- Queen Spider 的近战越墙（`mob:queenspider` 的隔墙命中）在 doorbox 里有 41 次，是她压力不降的主要原因
+
+### 联机同步设置
+
+`tools/autotest-mp.sh evilsprotector 40 stonewall 14179 blockProjectiles=false`：只有服务器的设置文件关掉了 `blockProjectiles`。
+
+| 端 | 自己文件里的值 | 弹体 `solid` | 撞墙 | 打中玩家 |
+|---|---|---|---|---|
+| 服务端 | false | false | 0 | 3 |
+| 客户端 | true（默认） | **false** | 0 | 2 |
+
+客户端照服务器的设置模拟，两端一致；客户端的设置文件保持原样。

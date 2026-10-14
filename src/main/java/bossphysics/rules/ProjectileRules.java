@@ -1,45 +1,27 @@
 package bossphysics.rules;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import bossphysics.config.BossPhysicsConfig;
 import necesse.entity.mobs.Mob;
 import necesse.entity.projectile.Projectile;
 
 /**
- * The projectile whitelist: which boss projectiles are made solid (blocked by walls, unable to hit targets behind
- * walls). Everything not listed keeps its vanilla behaviour.
+ * Applies the projectile whitelist ({@code PROJECTILES} in the settings): which boss projectiles are made solid
+ * (blocked by walls, unable to hit targets behind walls). Everything not listed keeps its vanilla behaviour.
  *
- * <p>Only direct-fire projectiles belong here. Lobbed and summoning projectiles ({@code canHitMobs = false}, e.g.
- * spider spit, eggs, boulders) fly over walls, and {@code *Warning*} markers must never be blocked. See
+ * <p>Only direct-fire projectiles belong in the list. Lobbed and summoning projectiles ({@code canHitMobs = false},
+ * e.g. spider spit, eggs, boulders) fly over walls, and {@code *Warning*} markers must never be blocked. See
  * {@code docs/projectile-audit.md}.
  */
 public final class ProjectileRules {
 
-    /** {@code -Dbossphysics.rules=off} disables every rule, for A/B comparisons in autotest runs. */
-    private static final boolean ENABLED = !"off".equals(System.getProperty("bossphysics.rules"));
-
-    private static final Map<String, ProjectileRule> RULES;
-
-    static {
-        Map<String, ProjectileRule> rules = new HashMap<>();
-        rules.put("evilsprotector1", ProjectileRule.BLOCKED);
-        rules.put("evilsprotector2", ProjectileRule.BLOCKED);
-        rules.put("crystaldragonshard", ProjectileRule.BLOCKED);
-        RULES = Collections.unmodifiableMap(rules);
-    }
-
     private ProjectileRules() {
-    }
-
-    public static boolean isEnabled() {
-        return ENABLED;
     }
 
     /** The rule for this projectile, or null when it should keep vanilla behaviour. */
     public static ProjectileRule ruleFor(Projectile projectile) {
-        if (!ENABLED) return null;
-        ProjectileRule rule = RULES.get(projectile.getStringID());
+        BossPhysicsConfig config = BossPhysicsConfig.get();
+        if (!config.enabled || !config.blockProjectiles) return null;
+        ProjectileRule rule = config.projectiles.get(projectile.getStringID());
         if (rule == null) return null;
         Mob owner = projectile.getOwner();
         if (owner != null) return owner.isBoss() ? rule : null;
@@ -57,5 +39,17 @@ public final class ProjectileRules {
         if (rule == null) return canBounce;
         projectile.isSolid = rule.solid;
         return canBounce && rule.allowBounce;
+    }
+
+    /**
+     * The tool tier a boss breaks walls with, compared against the wall's {@code toolTier} by vanilla. A worm boss's
+     * body segment (also a boss mob) uses its head's tier.
+     */
+    public static float toolTierOf(Mob boss) {
+        BossPhysicsConfig config = BossPhysicsConfig.get();
+        if (boss == null) return config.defaultBossToolTier;
+        Mob master = boss.getSpawnPacketMaster();
+        if (master != null && master != boss) boss = master;
+        return config.toolTierFor(boss.getStringID());
     }
 }

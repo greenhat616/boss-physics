@@ -1,5 +1,7 @@
 package bossphysics.commands;
 
+import bossphysics.config.BossPhysicsConfig;
+import bossphysics.config.ConfigSync;
 import bossphysics.debug.AttackAudit;
 import bossphysics.debug.AutoTest;
 import bossphysics.debug.BossSpawner;
@@ -17,21 +19,23 @@ import necesse.engine.network.server.ServerClient;
 import necesse.entity.mobs.Mob;
 
 /**
- * Debug tools:
+ * Settings and debug tools:
  * <ul>
+ * <li>{@code /bp status}: the settings in force</li>
+ * <li>{@code /bp reload}: re-reads {@code cfg/mods/a632079.bossphysics.cfg} and sends it to connected clients</li>
  * <li>{@code /bp debug <on|off|dump|clear>}: the attack audit used to build the projectile whitelist</li>
  * <li>{@code /bp spawnboss <mobid> [distance]}: spawns a boss near you (default 960 pixels, like summon items)</li>
- * <li>{@code /bp autotest <start|walled|stop> [boss1,boss2,...]}: scripted boss runs feeding the audit; walled
- * mode puts you in a stone-wall box</li>
+ * <li>{@code /bp autotest <start|walled|balance|stop> [boss1,boss2,...]}: scripted boss runs feeding the audit;
+ * walled fights you in a stone-wall box, balance runs every layout and writes a balance report</li>
  * </ul>
  */
 public class BossPhysicsCommand extends ModularChatCommand {
 
     public BossPhysicsCommand() {
-        super("bp", "Boss Physics debug tools: debug <on|off|dump|clear> | spawnboss <mobid> [distance] | autotest <start|walled|stop> [bosses]",
+        super("bp", "Boss Physics: status | reload | debug <on|off|dump|clear> | spawnboss <mobid> [distance] | autotest <start|walled|balance|stop> [bosses]",
             PermissionLevel.ADMIN, false,
-            new CmdParameter("subcommand", new PresetStringParameterHandler("debug", "spawnboss", "autotest")),
-            new CmdParameter("arg", new StringParameterHandler(null, "on", "off", "dump", "clear", "start", "walled", "stop",
+            new CmdParameter("subcommand", new PresetStringParameterHandler("status", "reload", "debug", "spawnboss", "autotest")),
+            new CmdParameter("arg", new StringParameterHandler(null, "on", "off", "dump", "clear", "start", "walled", "balance", "stop",
                 "evilsprotector", "queenspider", "swampguardian", "crystaldragon"), true),
             new CmdParameter("extra", new StringParameterHandler(), true));
     }
@@ -42,6 +46,19 @@ public class BossPhysicsCommand extends ModularChatCommand {
         String arg = (String) args[1];
         String extra = (String) args[2];
         switch (sub) {
+            case "status":
+                for (String line : ConfigSync.describe(BossPhysicsConfig.get())) logs.add(line);
+                break;
+            case "reload":
+                String error = BossPhysicsConfig.reloadFromFile();
+                if (error != null) {
+                    logs.add("Could not read " + BossPhysicsConfig.file() + ", settings unchanged: " + error);
+                } else {
+                    ConfigSync.sendToAll(server);
+                    logs.add("Reloaded " + BossPhysicsConfig.file());
+                    for (String line : ConfigSync.describe(BossPhysicsConfig.get())) logs.add(line);
+                }
+                break;
             case "debug":
                 runDebug(arg, logs);
                 break;
@@ -49,13 +66,13 @@ public class BossPhysicsCommand extends ModularChatCommand {
                 runSpawnBoss(serverClient, arg, extra, logs);
                 break;
             case "autotest":
-                if ("start".equals(arg) || "walled".equals(arg)) {
+                if ("start".equals(arg) || "walled".equals(arg) || "balance".equals(arg)) {
                     logs.add(AutoTest.start(extra == null ? AutoTest.DEFAULT_BOSSES : Arrays.asList(extra.split(",")), false,
-                        "walled".equals(arg)));
+                        AutoTest.parseLayouts("start".equals(arg) ? "audit" : arg, null)));
                 } else if ("stop".equals(arg)) {
                     logs.add(AutoTest.stop());
                 } else {
-                    logs.add("Usage: /bp autotest <start|walled|stop> [boss1,boss2,...]");
+                    logs.add("Usage: /bp autotest <start|walled|balance|stop> [boss1,boss2,...]");
                 }
                 break;
             default:

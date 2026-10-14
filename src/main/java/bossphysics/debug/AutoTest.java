@@ -1,30 +1,35 @@
 package bossphysics.debug;
 
-import bossphysics.rules.ProjectileRules;
+import bossphysics.config.BossPhysicsConfig;
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import necesse.engine.GameLog;
 import necesse.engine.network.server.Server;
 import necesse.engine.network.server.ServerClient;
 import necesse.entity.mobs.Mob;
+import necesse.level.maps.Level;
 
 /**
- * Scripted boss runs for the attack audit, driven from {@code Server.tick()}.
+ * Scripted boss fights, driven from {@code Server.tick()}. Two kinds of run:
  *
- * <p>For each boss: spawn it near the (invincible) player, let it attack, move the player far away halfway through so
- * the boss unloads on the client and comes back (the case where a client may not resolve a projectile's owner), then
- * remove it. When the last boss is done the audit is dumped and, if requested, the game exits.
+ * <ul>
+ * <li><b>audit</b> (M0): spawn each boss near the (invincible) player, move the player far away halfway through so the
+ * boss unloads on the client and comes back (where a client may fail to resolve a projectile's owner), then remove
+ * it.</li>
+ * <li><b>layouts</b>: each boss fights the player once per {@link TestArena.Layout}, each fight on a fresh arena east
+ * of the last one. {@link FightStats} records every fight and {@link BalanceReport} judges them at the end.</li>
+ * </ul>
  *
- * <p>In <b>walled</b> mode the player instead stands inside a closed stone-wall box ({@link TestArena}) for the whole
- * fight, and the summary reports how often each boss projectile hit a wall versus the player.
- *
- * <p>Launching with {@code -Dbossphysics.autotest=boss1,boss2} starts a run as soon as a player is in the world, and
- * exits afterwards; {@code -Dbossphysics.autotest.seconds=N} sets the fight length per boss and
- * {@code -Dbossphysics.autotest.mode=walled} selects walled mode ({@code -Dbossphysics.autotest.wall=<objectid>} picks the
- * wall, default {@code stonewall}; {@code -Dbossphysics.autotest.protectWalls=true} marks it protected).
+ * <p>Launch properties: {@code -Dbossphysics.autotest=boss1,boss2} starts a run as soon as a player is in the world and
+ * exits afterwards; {@code .seconds=N} is the fight length; {@code .mode=audit|walled|balance} ({@code walled} = the
+ * {@code box} layout, {@code balance} = every layout); {@code .layouts=open,box,...} overrides the
+ * layouts; {@code .wall=<objectid>} picks the wall (default {@code stonewall}); {@code .protectWalls=true} marks it
+ * protected.
  */
 public final class AutoTest {
 
@@ -33,6 +38,7 @@ public final class AutoTest {
     private static final String PROP_BOSSES = "bossphysics.autotest";
     private static final String PROP_SECONDS = "bossphysics.autotest.seconds";
     private static final String PROP_MODE = "bossphysics.autotest.mode";
+    private static final String PROP_LAYOUTS = "bossphysics.autotest.layouts";
     private static final String PROP_WALL = "bossphysics.autotest.wall";
     private static final String PROP_PROTECT = "bossphysics.autotest.protectWalls";
     private static final long SETTLE_MS = 8000;
@@ -41,20 +47,42 @@ public final class AutoTest {
     private static final long GAP_MS = 3000;
     private static final int AWAY_DISTANCE = 4000;
     private static final float SPAWN_DISTANCE = 700;
+    /** Arenas are this many tiles apart, so a fight never starts among the previous fight's rubble. */
+    private static final int ARENA_SPACING = 64;
+    /** Mobs left within this many pixels of the arena after a fight (summons, night spawns) are removed. */
+    private static final int CLEANUP_RANGE = 1600;
 
-    private enum Phase { IDLE, WAIT_PLAYER, SETTLE, FIGHT, AWAY, RETURNED, GAP, DONE }
+    private enum Phase { IDLE, WAIT_PLAYER, MOVE, SETTLE, FIGHT, AWAY, RETURNED, GAP, DONE }
+
+    /** A fight whose boss was idle (no attack at all) or left early is retried on a fresh arena this many times. */
+    private static final int IDLE_RETRIES = 2;
+
+    private static final class Job {
+        final String boss;
+        /** Null in audit runs. */
+        final TestArena.Layout layout;
+        final int attempt;
+
+        Job(String boss, TestArena.Layout layout, int attempt) {
+            this.boss = boss;
+            this.layout = layout;
+            this.attempt = attempt;
+        }
+    }
 
     private static Phase phase = Phase.IDLE;
-    private static final Deque<String> queue = new ArrayDeque<>();
+    private static final Deque<Job> queue = new ArrayDeque<>();
+    private static final List<FightStats> results = new ArrayList<>();
     private static long fightMs;
     private static boolean exitWhenDone;
-    private static boolean walled;
-    private static boolean arenaBuilt;
     private static long phaseStart;
-    private static String current;
+    private static Job current;
     private static Mob boss;
     private static int homeX, homeY;
+    private static int nextArenaTileX = Integer.MIN_VALUE;
+    private static int arenaTileY;
     private static boolean launchChecked;
+    private static boolean pausedWarned;
 
     private AutoTest() {
     }
@@ -63,25 +91,47 @@ public final class AutoTest {
         return System.getProperty(PROP_BOSSES) != null;
     }
 
-    public static synchronized String start(List<String> bosses, boolean exitAfter, boolean walledMode) {
+    /** @param layouts null for an audit run */
+    public static synchronized String start(List<String> bosses, boolean exitAfter, List<TestArena.Layout> layouts) {
         queue.clear();
-        walled = walledMode;
-        queue.addAll(bosses);
+        results.clear();
+        for (String b : bosses) {
+            if (layouts == null) queue.add(new Job(b, null, 0));
+            else for (TestArena.Layout layout : layouts) queue.add(new Job(b, layout, 0));
+        }
         fightMs = Long.getLong(PROP_SECONDS, 45L) * 1000L;
         exitWhenDone = exitAfter;
+        nextArenaTileX = Integer.MIN_VALUE;
         AttackAudit.clear();
         AttackAudit.setEnabled(true);
         enter(Phase.WAIT_PLAYER);
-        log("started: " + bosses + ", " + fightMs / 1000 + "s per boss" + (walled ? ", walled" : "")
-            + (ProjectileRules.isEnabled() ? "" : ", projectile rules OFF"));
-        return "Autotest started: " + bosses + (walled ? " (walled)" : "");
+        String what = bosses + (layouts == null ? " (audit)" : " x " + layouts);
+        log("started: " + what + ", " + fightMs / 1000 + "s per fight"
+            + (BossPhysicsConfig.get().blockProjectiles ? "" : ", projectile rules OFF"));
+        return "Autotest started: " + what;
     }
 
     public static synchronized String stop() {
         removeBoss();
+        FightStats.end();
         queue.clear();
         enter(Phase.IDLE);
         return "Autotest stopped";
+    }
+
+    /** Parses the run kind from {@code mode} and {@code layouts}; null means an audit run. */
+    public static List<TestArena.Layout> parseLayouts(String mode, String layouts) {
+        if (layouts != null && !layouts.isEmpty()) {
+            List<TestArena.Layout> out = new ArrayList<>();
+            for (String name : layouts.split(",")) {
+                TestArena.Layout layout = TestArena.Layout.parse(name);
+                if (layout != null) out.add(layout);
+            }
+            return out;
+        }
+        if ("walled".equals(mode)) return Collections.singletonList(TestArena.Layout.BOX);
+        if ("balance".equals(mode)) return Arrays.asList(TestArena.Layout.values());
+        return null;
     }
 
     public static synchronized void tick(Server server) {
@@ -89,7 +139,8 @@ public final class AutoTest {
             launchChecked = true;
             String prop = System.getProperty(PROP_BOSSES);
             if (prop != null) {
-                start(prop.isEmpty() ? DEFAULT_BOSSES : Arrays.asList(prop.split(",")), true, "walled".equals(System.getProperty(PROP_MODE)));
+                start(prop.isEmpty() ? DEFAULT_BOSSES : Arrays.asList(prop.split(",")), true,
+                    parseLayouts(System.getProperty(PROP_MODE), System.getProperty(PROP_LAYOUTS)));
             }
         }
         if (phase == Phase.IDLE || phase == Phase.DONE) return;
@@ -103,83 +154,138 @@ public final class AutoTest {
             return;
         }
         long elapsed = System.currentTimeMillis() - phaseStart;
+        if (server.isPaused() != pausedWarned) {
+            pausedWarned = server.isPaused();
+            // The world does not tick while paused, so the fight in progress is worthless (it shows up as an idle boss).
+            log(pausedWarned ? "WARNING: world paused (singleplayer pauses when the window loses focus)" : "world resumed");
+        }
 
         switch (phase) {
             case WAIT_PLAYER:
                 client.playerMob.hasInvincibility = true;
-                int tileX = client.playerMob.getTileX();
-                int tileY = client.playerMob.getTileY();
-                if (walled) {
-                    // Spawn is inside the elder's village, a settlement, where walls are protected by default.
-                    tileX = TestArena.findSpotOutsideSettlements(client.getLevel(), tileX, tileY);
-                    arenaBuilt = false;
+                enter(Phase.MOVE);
+                break;
+            case MOVE:
+                if (queue.isEmpty()) {
+                    finish(server);
+                    break;
                 }
-                homeX = tileX * 32 + 16;
-                homeY = tileY * 32 + 16;
-                BossSpawner.teleport(client, homeX, homeY);
+                current = queue.poll();
+                moveToArena(client, current.layout != null);
                 enter(Phase.SETTLE);
                 break;
             case SETTLE:
-            case GAP:
-                if (elapsed < (phase == Phase.SETTLE ? SETTLE_MS : GAP_MS)) break;
-                if (queue.isEmpty()) {
-                    finish();
-                    break;
-                }
-                if (walled && !arenaBuilt) {
-                    // Built after SETTLE so the regions around the new spot are generated and will not overwrite it.
-                    String wall = System.getProperty(PROP_WALL, "stonewall");
-                    int arenaX = homeX / 32;
-                    int arenaY = homeY / 32;
-                    boolean protect = Boolean.getBoolean(PROP_PROTECT);
-                    TestArena.build(client.getLevel(), arenaX, arenaY, wall, protect);
-                    AttackAudit.setInsideArea(TestArena.wallBounds(arenaX, arenaY));
-                    arenaBuilt = true;
-                    log("built walled arena at tile " + arenaX + "," + arenaY + " with " + wall + (protect ? " (protected)" : ""));
-                }
-                current = queue.poll();
-                ensureNight(server);
-                BossSpawner.teleport(client, homeX, homeY);
-                boss = BossSpawner.spawnNear(client, current, SPAWN_DISTANCE);
-                if (boss == null) {
-                    log("unknown mob id: " + current);
-                    enter(Phase.GAP);
-                } else {
-                    log("spawned " + current);
-                    enter(Phase.FIGHT);
-                }
+                if (elapsed < SETTLE_MS) break;
+                startFight(server, client);
                 break;
             case FIGHT:
+                FightStats.tick();
                 if (boss.removed()) {
-                    log(current + " removed itself (died or despawned)");
-                    enter(Phase.GAP);
-                } else if (walled && elapsed >= fightMs) {
-                    removeBoss();
-                    log("finished " + current);
-                    enter(Phase.GAP);
-                } else if (!walled && elapsed >= fightMs / 2) {
+                    log(current.boss + " removed itself (died or despawned)");
+                    endFight(client, true);
+                } else if (current.layout != null && elapsed >= fightMs) {
+                    endFight(client, false);
+                } else if (current.layout == null && elapsed >= fightMs / 2) {
                     BossSpawner.teleport(client, homeX + AWAY_DISTANCE, homeY);
-                    log("player moved away from " + current);
+                    log("player moved away from " + current.boss);
                     enter(Phase.AWAY);
                 }
                 break;
             case AWAY:
                 if (elapsed >= AWAY_MS) {
                     BossSpawner.teleport(client, (int) boss.x + 300, (int) boss.y);
-                    log("player returned to " + current + (boss.removed() ? " (boss already removed)" : ""));
+                    log("player returned to " + current.boss + (boss.removed() ? " (boss already removed)" : ""));
                     enter(Phase.RETURNED);
                 }
                 break;
             case RETURNED:
-                if (boss.removed() || elapsed >= fightMs / 2) {
-                    removeBoss();
-                    log("finished " + current);
-                    enter(Phase.GAP);
-                }
+                if (boss.removed() || elapsed >= fightMs / 2) endFight(client, false);
+                break;
+            case GAP:
+                if (elapsed >= GAP_MS) enter(Phase.MOVE);
                 break;
             default:
                 break;
         }
+    }
+
+    /** Layout fights get a fresh arena outside settlements; audit fights stay where the player is. */
+    private static void moveToArena(ServerClient client, boolean arena) {
+        Level level = client.getLevel();
+        int tileY = client.playerMob.getTileY();
+        int tileX = client.playerMob.getTileX();
+        if (arena) {
+            if (nextArenaTileX == Integer.MIN_VALUE) {
+                nextArenaTileX = tileX;
+                arenaTileY = tileY;
+            }
+            tileY = arenaTileY;
+            // New worlds put the player in the elder's village, a settlement, where walls are protected by default.
+            tileX = TestArena.findSpotOutsideSettlements(level, nextArenaTileX, tileY);
+            nextArenaTileX = tileX + ARENA_SPACING;
+        }
+        homeX = tileX * 32 + 16;
+        homeY = tileY * 32 + 16;
+        BossSpawner.teleport(client, homeX, homeY);
+    }
+
+    private static void startFight(Server server, ServerClient client) {
+        ensureNight(server);
+        BossSpawner.teleport(client, homeX, homeY);
+        if (current.layout != null) {
+            // Built after SETTLE so the regions around the new spot are generated and will not overwrite it.
+            String wall = System.getProperty(PROP_WALL, "stonewall");
+            boolean protect = Boolean.getBoolean(PROP_PROTECT);
+            int tileX = homeX / 32;
+            int tileY = homeY / 32;
+            TestArena.Walls walls = TestArena.build(client.getLevel(), tileX, tileY, wall, current.layout, protect);
+            AttackAudit.setInsideArea(TestArena.wallBounds(tileX, tileY));
+            FightStats.begin(current.boss, current.layout, TestArena.wallBounds(tileX, tileY),
+                current.layout == TestArena.Layout.OPEN ? null : walls);
+            log("built " + current.layout.id() + " arena at tile " + tileX + "," + tileY + " with " + wall + (protect ? " (protected)" : ""));
+            boss = BossSpawner.spawnAt(client, current.boss, homeX + SPAWN_DISTANCE, homeY);
+        } else {
+            boss = BossSpawner.spawnNear(client, current.boss, SPAWN_DISTANCE);
+        }
+        if (boss == null) {
+            log("unknown mob id: " + current.boss);
+            FightStats.end();
+            enter(Phase.GAP);
+        } else {
+            log("spawned " + current.boss + (current.layout != null ? " for " + current.layout.id() : ""));
+            enter(Phase.FIGHT);
+        }
+    }
+
+    private static void endFight(ServerClient client, boolean bossLeft) {
+        String positions = boss == null ? "" : String.format("(boss at %+d,%+d px from home, player at %+d,%+d)",
+            (int) boss.x - homeX, (int) boss.y - homeY, client.playerMob.getX() - homeX, client.playerMob.getY() - homeY);
+        removeBoss();
+        removeLeftoverMobs(client.getLevel());
+        FightStats stats = FightStats.end();
+        if (stats != null) {
+            stats.bossLeftEarly = bossLeft;
+            stats.endPositions = positions;
+            log(stats.describe());
+            if ((stats.bossIdle() || bossLeft) && current.layout != null && current.attempt < IDLE_RETRIES) {
+                log("boss was " + (bossLeft ? "gone early" : "idle") + ", retrying " + current.boss + " " + current.layout.id()
+                    + " on a new arena");
+                queue.addFirst(new Job(current.boss, current.layout, current.attempt + 1));
+            } else {
+                results.add(stats);
+            }
+        }
+        log("finished " + current.boss + (current.layout != null ? " " + current.layout.id() : ""));
+        enter(Phase.GAP);
+    }
+
+    /** Summons and night spawns would otherwise carry over into the next fight. */
+    private static void removeLeftoverMobs(Level level) {
+        List<Mob> leftovers = new ArrayList<>();
+        level.entityManager.mobs.stream()
+            .filter(m -> !m.isPlayer && m.isHostile && m.getDistance(homeX, homeY) < CLEANUP_RANGE)
+            .forEach(leftovers::add);
+        for (Mob m : leftovers) m.remove();
     }
 
     /** Some bosses (Evils Protector) leave during the day; jump to midnight the way {@code /time midnight} does. */
@@ -191,12 +297,16 @@ public final class AutoTest {
         log("time set to midnight");
     }
 
-    private static void finish() {
+    private static void finish(Server server) {
         enter(Phase.DONE);
         try {
             for (String line : AttackAudit.dump()) log(line);
             for (String line : AttackAudit.summarizeHits()) log(line);
             for (String line : AttackAudit.summarizeWallDamage()) log(line);
+            if (!results.isEmpty()) {
+                boolean localClient = server.isSingleplayer() || server.isHosted();
+                for (String line : BalanceReport.write(results, localClient)) log(line);
+            }
         } catch (IOException e) {
             log("could not write audit: " + e.getMessage());
         }

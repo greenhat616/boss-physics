@@ -27,11 +27,17 @@ write_modlist() {
     } > "$1/mods/modlist.data"
 }
 
-# write_client_settings <datadir>: small muted window; every other setting falls back to its default.
+# write_client_settings <datadir>: small muted window that keeps running without focus (a singleplayer world
+# otherwise pauses as soon as another window is clicked, freezing every boss mid-test); every other setting falls
+# back to its default.
 write_client_settings() {
     mkdir -p "$1/cfg"
     cat > "$1/cfg/settings.cfg" <<'EOF'
 {
+	GENERAL = {
+		pauseOnFocusLoss = false,
+		savePerformanceOnFocusLoss = false
+	},
 	SOUND = {
 		masterVolume = 0
 	},
@@ -51,4 +57,39 @@ prepare_client_run_dir() {
 
 print_audit_lines() {
     grep -a "\[BossPhysics\]" "$1" | sed 's/\x1b\[[0-9;]*m//g' || true
+}
+
+# write_mod_config <datadir> <config file or ""> [key=value ...]: the mod's settings file for a test run. Starts from
+# <config file> if given (a full cfg/mods/a632079.bossphysics.cfg), then sets each key=value inside SETTINGS. Keys left
+# out keep the mod's defaults.
+write_mod_config() {
+    local data="$1" base="$2"
+    shift 2
+    local file="$data/cfg/mods/a632079.bossphysics.cfg"
+    mkdir -p "$(dirname "$file")"
+    if [ -z "$base" ]; then
+        # No base: write just the overrides (the game fills in the rest and rewrites the file on start-up).
+        {
+            echo "{"
+            echo "	SETTINGS = {"
+            local first=1 kv
+            for kv in "$@"; do
+                [ $first = 1 ] || echo ","
+                printf '		%s = %s' "${kv%%=*}" "${kv#*=}"
+                first=0
+            done
+            echo
+            echo "	}"
+            echo "}"
+        } > "$file"
+        return
+    fi
+    cp "$base" "$file"
+    local kv
+    for kv in "$@"; do
+        local key="${kv%%=*}"
+        sed -i "/^		$key = /d" "$file"
+        sed -i "0,/SETTINGS = {/s//SETTINGS = {
+		$key = ${kv#*=},/" "$file"
+    done
 }

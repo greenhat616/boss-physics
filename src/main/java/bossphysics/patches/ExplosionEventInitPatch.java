@@ -1,6 +1,7 @@
 package bossphysics.patches;
 
 import bossphysics.debug.AttackAudit;
+import bossphysics.rules.ExplosionRules;
 import necesse.engine.modLoader.annotations.ModMethodPatch;
 import necesse.entity.levelEvent.explosionEvent.ExplosionEvent;
 import net.bytebuddy.asm.Advice;
@@ -11,6 +12,7 @@ public class ExplosionEventInitPatch {
 
     @Advice.OnMethodExit
     static void onExit(@Advice.This ExplosionEvent event) {
+        ExplosionRules.apply(event);
         AttackAudit.recordExplosion(event);
     }
 }

@@ -1,6 +1,7 @@
 package bossphysics.patches;
 
 import bossphysics.debug.AttackAudit;
+import bossphysics.debug.FightStats;
 import bossphysics.rules.WallDamage;
 import necesse.engine.modLoader.annotations.ModMethodPatch;
 import necesse.engine.network.server.ServerClient;
@@ -20,6 +21,7 @@ public class ProjectileOnHitPatch {
     @Advice.OnMethodEnter
     static void onEnter(@Advice.This Projectile projectile, @Advice.Argument(0) Mob mob, @Advice.Argument(1) LevelObjectHit object) {
         AttackAudit.recordHit(projectile, mob, object);
+        FightStats.onProjectileHit(projectile, mob, object);
         WallDamage.onProjectileHit(projectile, mob, object);
     }
 }

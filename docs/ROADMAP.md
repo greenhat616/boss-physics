@@ -80,19 +80,29 @@
 
 ### M3 boss 爆炸拆墙
 
-- [ ] patch `ExplosionEvent.init()` 的出口（复用 M0 的 `ExplosionEventInitPatch`，`ownerMob` 在这里才解析）：owner 是 boss，且该爆炸类在白名单里时，设 `destroysObjects = true`、`toolTier = boss 档位`；`destroysTiles` 默认保持 false
-- [ ] 候选爆炸：`CaptainCannonBallExplosionEvent`、`BoulderHitExplosionEvent`（Swamp Guardian 的巨石）、`VoidWizardExplosionEvent` 等，以 M0 审计为准
-- [ ] 同样遵守定居点开关
+- [x] `ExplosionEvent.init()` 出口（`ExplosionEventInitPatch` → `ExplosionRules`）：仅服务端；owner 是 boss、爆炸 ID 在 `EXPLOSIONS` 里、原本不破坏物体时，设 `destroysObjects = true`，`toolTier` 取 boss 的工具等级。之后由原版 `serverTick` 对范围内的物体调用 `doExplosionDamage`（受保护地块、掉落、同步都走原版）。`destroysTiles` 保持 false
+- [x] 对物体的伤害可以单独调倍率：patch `getTotalObjectDamage` 的出口，只作用于本 mod 打开的爆炸（`explosionWallDamageMultiplier`，默认 1.0）
+- [x] 定居点：爆心和范围四角任一处在定居点内就不打开
+- [x] 首批白名单只有 `boulderhit`（Swamp Guardian 的巨石）。其他候选：`captaincannonballexplosion`（Pirate Captain）、`voidwizardexplosion`（Void Wizard），等对应 boss 跑过平衡性测试再加。Ascended 的炸弹原版就会拆墙（等级 10），Sunlight Champion 的超新星半径 650 像素，不考虑
+- [x] 自动测试改为统计墙体：每个服务端 tick 数一次墙圈还剩几面，记录第一次破墙的时间（爆炸拆墙不经过本 mod 的代码，只能这样统计）
 
-验收：Swamp Guardian 的巨石落地后，能炸掉范围内的低级墙。
+验收（2026-10-14，平衡性测试基线，石墙，45 秒）：
+- [x] Swamp Guardian 的巨石能炸掉墙：全封闭墙盒 17.3 秒后破墙，45 秒内拆掉 10/24 面；半掩体 11.4 秒破墙，拆掉 6/19 面
+- 巨石爆炸半径只有 80 像素，玩家站在 5×5 墙盒正中时，落点要偏向墙才炸得到；玩家被爆炸击退到墙边后拆得更快
 
 ### M4 配置与发布准备
 
-- [ ] 配置文件 `cfg/mods/a632079.bossphysics.cfg`，并接入 Mod Settings Lib（与 coop-pause 一致）
-- [ ] 指令 `/bp reload` 重新读取配置；`/bp status` 显示当前开关
-- [ ] 写 README，以及创意工坊的 `description.bbcode`
+- [x] 设置文件 `cfg/mods/a632079.bossphysics.cfg`：用原版的 `ModSettings`（`BossPhysicsSettings`），游戏第一次启动时按默认值生成，每项带注释。白名单、等级表都在文件里（`PROJECTILES`、`EXPLOSIONS`、`SUMMONS`、`BOSS_TOOL_TIERS`）。原来的 `-Dbossphysics.*` 系统属性全部改为设置项
+- [x] **没有接入 Mod Settings Lib**：设置里大部分是列表和表格，库的界面放不下；也省掉一个前置。以后如果要在游戏里改开关，再单独评估
+- [x] 联机同步（`PacketBossPhysicsConfig`）：客户端也要模拟弹体，哪些弹体被墙挡住必须两端一致。服务器在玩家加入时和 `/bp reload` 后发送完整设置；客户端只在内存里使用，不写回自己的文件；在本机启动世界时换回本机文件的设置
+- [x] `/bp reload` 重新读取文件并同步；`/bp status` 显示当前设置
+- [x] README、创意工坊描述 `docs/workshop/description.bbcode`（中英文）
+- [x] 测试脚本改为读设置：`tools/autotest.sh --set key=value` / `--config 文件`
+- [ ] 预览图、介绍图和上传（发布前再做）
 
-验收：所有开关都能在不重启的情况下生效（至少独立服务器上 `/bp reload` 可用）。
+验收：
+- [x] 联机时客户端用服务器的设置：独立服务器设 `blockProjectiles = false`、客户端文件保持默认，客户端的弹体同样是 `solid=false`，没有撞墙；客户端文件没被服务器的值覆盖（`tools/autotest-mp.sh ... blockProjectiles=false`，2026-10-14）
+- [ ] `/bp reload` 在运行中改设置后同步给客户端：和加入时走同一个数据包，但没有单独实测
 
 ### M5 平衡性调整
 
@@ -109,22 +119,35 @@
 | 被完全围住，召唤物有近战能力但没有门 | 拆墙 |
 | 召唤物有远程能力，视线被墙挡住 | 优先射击挡在中间的墙 |
 
-- [ ] 识别"boss 召唤物"：记录由 boss 生成的怪物（召唤用弹体落点生成的、AI 召唤的），给它们打标记
-- [ ] 近战召唤物：加上原版的 `BuffModifiers.CAN_BREAK_OBJECTS`。原版寻路已有"拆除代价"（`getBreakDownPathCost` = 耐久 × 2.5，墙约 250，门更低），所以会自然地先绕路、再破门、最后拆墙。需要实测是否符合预期，以及拆墙速度
-- [ ] 远程召唤物：原版远程 AI 通常只在视线畅通时开火（例如 Swamp Guardian 的剃刀会先检查视线）。需要加一个 AI 节点：目标被墙挡住时，找出视线上的第一面墙并朝它开火；它们的弹体也要进白名单，规则同 M1/M2
-- [ ] 判断"半个掩体"：寻路能到达目标（不需要拆东西）就视为半掩体，按原版行为绕路
-- [ ] 自动测试加两种布局：半掩体（三面墙）、带门的全封闭墙盒
+- [x] 识别"boss 召唤物"（`SummonRules`）：`Mob.init()` 出口记下 mob ID 在 `SUMMONS` 里的新怪物，下一个服务端 tick 检查 64 格内有没有 boss，有才算召唤物（同种怪物的自然刷新不算），在定居点里出生的也不算。默认 `portalminion`、`spiderhatchling`、`crystalgolem`
+- [x] 给召唤物加隐藏 buff `bossphysicssummon`（`CAN_BREAK_OBJECTS`），复用原版袭击者的拆墙寻路：路径可以穿过墙和门，撞上时每秒打一下（10 点）。原版每格每秒最多吃约 10 点拆除伤害，多只召唤物同时拆同一格不会更快
+- [x] 原版拆除无视工具等级，`MobPathBreakDownPatch` 补上：墙的等级高于召唤者 boss 的等级、或在定居点内（`damageInSettlements` 关闭时）就不拆。蠕虫 boss 的身体节召唤时取头部的等级
+- [x] 门优先：原版的拆除代价是门 40、墙"耐久 × 2.5"（石墙 250），寻路每格代价约 1。实测召唤物仍然常常拆墙，所以对召唤物改为门 20、墙"耐久 × 10"（`MobPathBreakDownCostPatch`）
+- [x] 半掩体：不需要单独判断。寻路能绕过去时，绕路的代价远小于拆墙
+- [x] 自动测试加两种布局：`halfcover`（去掉背对 boss 的一面）、`doorbox`（背对 boss 一面的正中是门）；统计召唤物的拆除命中（门 / 墙 / 被拒绝）
+- [ ] 远程召唤物：目前只是和近战一样走过去拆。水晶傀儡的光束是激光，本来就穿墙。专门"朝挡路的墙开火"的 AI 节点暂不做，等有不穿墙的远程召唤物时再评估
 
-**B. 数值与边界情况**
+**B. 平衡性测试框架**（2026-10-14 实现，详见 `docs/balance.md`）
+
+- [x] `tools/balance-test.sh`：每个 boss 依次打 open / box / halfcover / doorbox 四场，`BalanceReport` 按判定标准给出 PASS/FAIL，写出报告
+- [x] 规则：默认设置里的每个 boss 条目都必须通过；把机制扩展到新 boss 时，先在测试配置里加条目、跑测试，通过后再写进默认值
+- [x] boss 整场不行动或提前离开时，换场地重打（最多 2 次）
+- [x] 首批 4 个 boss 全部通过（审计文档第 9 节，最终一轮 2026-10-14 19:09）
+- [ ] 把白名单扩展到其他 boss（候选见审计文档第 3 节），每个都要先过测试
+- [ ] 每个组合多跑几次取中位数，降低随机性
+
+**C. 数值与边界情况**
 
 - [ ] 墙伤害倍率：目前 = 弹体伤害 × 1.0，Crystal Dragon 的碎片（115）一发拆一面石墙（耐久 100），Evils Protector（19～25）要 4～5 发。根据实测手感调整，或者改成按 boss 单独设倍率
-- [ ] boss 工具等级表 `BossTiers`：目前是暂定值，要按 boss 进度排完整
+- [ ] boss 工具等级表 `BOSS_TOOL_TIERS`：目前是暂定值，要按 boss 进度排完整
 - [ ] 墙体完全打不坏（等级不够、受保护地块）时，boss 会一直打不到人，要不要给 boss 别的应对（例如让召唤物处理，或者原版的逃跑计时照常生效）
 - [ ] boss 从头顶飞过时在墙内生成的弹体能打中人（M1 实测的现象），确认是否接受
 - [ ] 白名单弹体会被树、石头等所有带碰撞箱的物体挡住，森林里打 boss 是否变得太容易；目前它们也会被弹体打坏（联机测试中碎片拆了一棵云杉），要决定只拆墙、门，还是所有物体都拆
 - [ ] 定居点保护：定居点按"区域"登记，范围比肉眼看到的大（新世界出生点的长老村子整片都算），确认这个粒度是否合适
 
-## 4. 配置项（草案）
+## 4. 配置项
+
+已实现，见 README 的"设置"一节。下表是最初的草案，保留作对照。
 
 | 键 | 默认值 | 说明 |
 |---|---|---|
