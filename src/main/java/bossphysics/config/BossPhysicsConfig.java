@@ -160,7 +160,8 @@ public final class BossPhysicsConfig {
         // Chieftain, The Cursed Crone, Fallen Wizard), whose vanilla arenas are protected anyway.
         Collections.addAll(b.explosions, "boulderhit", "voidrainexplosion");
         Collections.addAll(b.summons, "portalminion", "spiderhatchling", "crystalgolem", "ascendedgolem", "warriorslime");
-        Collections.addAll(b.breakableObjects, "walls", "doors", "windows", "fences", "trees", "rocks");
+        Collections.addAll(b.breakableObjects, "walls", "doors", "windows", "fences", "trees", "rocks", "containers",
+            "furniture");
         return new BossPhysicsConfig(b);
     }
 
@@ -264,7 +265,7 @@ public final class BossPhysicsConfig {
         save.addStringList("EXPLOSIONS", new ArrayList<>(explosions), "Explosion event IDs that break objects when a boss owns them");
         save.addStringList("SUMMONS", new ArrayList<>(summons), "Mob IDs that break doors and walls when a boss summoned them");
         save.addStringList("BREAKABLE_OBJECTS", new ArrayList<>(breakableObjects),
-            "What boss attacks may damage: walls, doors, windows, fences, trees, rocks (furniture and chests never)");
+            "What boss attacks may damage: walls, doors, windows, fences, trees, rocks, containers, furniture");
     }
 
     /** The whole snapshot as a settings script, for the server-to-client sync packet. */

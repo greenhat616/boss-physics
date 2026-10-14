@@ -16,6 +16,6 @@ public class ObjectDamageFilterPatch {
     @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
     static boolean onEnter(@Advice.This EntityManager manager, @Advice.Argument(0) int layer, @Advice.Argument(1) int tileX,
                            @Advice.Argument(2) int tileY, @Advice.Argument(5) Attacker attacker) {
-        return ObjectFilter.refuses(manager.level.getObject(layer, tileX, tileY), attacker);
+        return ObjectFilter.refuses(manager.level, layer, tileX, tileY, attacker);
     }
 }

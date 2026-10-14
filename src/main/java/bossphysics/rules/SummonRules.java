@@ -106,7 +106,7 @@ public final class SummonRules {
         if (tier == null) return true;
         if (!BossPhysicsConfig.get().summonsBreakWalls) return false;
         if (lo.object.toolTier > tier) return false;
-        if (ObjectFilter.refuses(lo.object, mob)) return false;
+        if (ObjectFilter.refuses(lo.level, 0, lo.tileX, lo.tileY, mob)) return false;
         return !SettlementGuard.protects(lo.level, lo.tileX, lo.tileY);
     }
 

@@ -281,7 +281,7 @@ CSV 各列：`kind, side, id, class, superclass, owner, ownerIsBoss, isSolid, ca
 | Spider Empress、Ascended Wizard、The Void | 第一面墙 4.9 / 2.1 / 1.9 秒就破（要求 ≥ 5 秒） | 见下 |
 
 还发现两个问题：
-- **家具被打坏**：后期 boss 的弹体打碎了附近房子里的床、书架、箱子、工作台。原因是拆墙逻辑对弹体撞到的任何物体都生效。改为只打坏 `BREAKABLE_OBJECTS` 里的类别（默认墙、门、窗、栅栏、树、石头），在 `EntityManager.doObjectDamage` 统一过滤，弹体、爆炸、召唤物三条路径都管住。家具仍然挡弹体，但不掉血。复测中一个工作台、一个海盗宝箱被弹体打中，伤害都被拒绝
+- **家具被打坏**：后期 boss 的弹体打碎了附近房子里的床、书架、箱子、工作台。原因是拆墙逻辑对弹体撞到的任何物体都生效。加了按类别的开关 `BREAKABLE_OBJECTS`，在 `EntityManager.doObjectDamage` 统一过滤，弹体、爆炸、召唤物三条路径都管住。最初默认只开墙、门、窗、栅栏、树、石头（复测中一个工作台、一个海盗宝箱被打中，伤害都被拒绝）；后来按用户意见改为默认全开，否则家具和箱子会成为打不坏的掩体。被打坏的容器会掉出全部物品（原版 `getCombinedDroppedItems` 包含物品栏）
 - 测试框架把"墙后的 boss 什么也做不了"当成了"空场"去重试。改为只在空地布局重试，墙后的不行动是有效结果
 
 ### 第二轮：每发伤害上限
@@ -325,3 +325,14 @@ The Void 每秒约 5 发光弹打墙，单靠上限不够，加了按 boss 的�
 - "没破"的 boss 靠本体越墙或近战够到人维持压力：Reaper、Pest Warden、Sage & Grit、Night Swarm、Sunlight Champion 是飞行或蠕虫类，Mutant Hydra 的头部近战能越过墙
 - 接近阈值：Ascended Wizard 5.5 秒、Swamp Guardian 6.1 秒（5 秒为下限），重跑可能失败，留给下一轮调整
 - Cryo Queen 的 box 压力 0.22，低于 0.25，靠 60 秒内破墙通过
+
+### 容器和家具默认可破坏（2026-10-14）
+
+用储物箱代替石墙围一圈（`tools/autotest.sh --layouts box --wall storagebox`），每个 boss 40 秒：
+
+| 设置 | Evils Protector | Crystal Dragon |
+|---|---|---|
+| 默认（含 `containers`） | 伤害 18 次、打坏 1 个，10.1 秒破开 | 伤害 22 次、打坏 2 个，18.1 秒破开 |
+| 去掉 `containers` | 23 次全部拒绝，没破 | 19 次全部拒绝，没破 |
+
+去掉 `containers` 时有 1 次白名单弹体打中箱圈里的玩家：储物箱的碰撞箱比整格小，箱子围成的圈本身有缝，不是本 mod 的问题。
