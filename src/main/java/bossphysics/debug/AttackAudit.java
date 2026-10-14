@@ -1,18 +1,23 @@
 package bossphysics.debug;
 
+import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import necesse.engine.GameLog;
 import necesse.engine.GlobalData;
 import necesse.entity.levelEvent.explosionEvent.ExplosionEvent;
 import necesse.entity.mobs.Mob;
 import necesse.entity.projectile.Projectile;
+import necesse.level.maps.LevelObjectHit;
 
 /**
  * Records every distinct kind of non-player projectile and explosion while {@code /bp debug on} is active.
@@ -24,10 +29,13 @@ import necesse.entity.projectile.Projectile;
 public final class AttackAudit {
 
     private static final String CSV_HEADER =
-        "kind,side,id,class,superclass,owner,ownerIsBoss,isSolid,canBounce,canHitMobs,canBreakObjects,destroysObjects,destroysTiles,toolTier,count";
+        "kind,side,id,class,superclass,owner,ownerIsBoss,isSolid,canBounce,canHitMobs,canBreakObjects,destroysObjects,destroysTiles,toolTier,target,count";
 
     private static volatile boolean enabled;
     private static final Map<String, Entry> entries = new LinkedHashMap<>();
+    /** Walled autotest box in pixels; projectiles spawned inside it cannot be blocked by its walls. */
+    private static volatile Rectangle insideArea;
+    private static final Set<Integer> spawnedInside = new HashSet<>();
 
     private AttackAudit() {
     }
@@ -42,6 +50,11 @@ public final class AttackAudit {
 
     public static synchronized void clear() {
         entries.clear();
+        spawnedInside.clear();
+    }
+
+    public static void setInsideArea(Rectangle area) {
+        insideArea = area;
     }
 
     public static synchronized int size() {
@@ -53,6 +66,12 @@ public final class AttackAudit {
         if (!enabled) return;
         Mob owner = p.getOwner();
         if (owner != null && owner.isPlayer) return;
+        Rectangle area = insideArea;
+        if (area != null && area.contains(p.x, p.y)) {
+            synchronized (AttackAudit.class) {
+                spawnedInside.add(p.getUniqueID());
+            }
+        }
         String row = String.join(",",
             "projectile",
             side(p.isServer(), p.isClient()),
@@ -65,7 +84,36 @@ public final class AttackAudit {
             String.valueOf(p.getTotalBouncing() > 0),
             String.valueOf(p.canHitMobs),
             String.valueOf(p.canBreakObjects),
-            "", "", "");
+            "", "", "", "");
+        record(row);
+    }
+
+    /**
+     * Records what a boss projectile hit: {@code wall} (any level object), {@code player}, {@code mob}, or
+     * {@code none} (expired). Player hits are usually detected by the client and forwarded to the server, so both
+     * sides report them.
+     */
+    public static void recordHit(Projectile p, Mob target, LevelObjectHit object) {
+        if (!enabled) return;
+        Mob owner = p.getOwner();
+        if (owner == null || !owner.isBoss()) return;
+        String hit = target != null ? (target.isPlayer ? "player" : "mob:" + target.getStringID()) : object != null ? "wall:" + object.getObject().getStringID() : "none";
+        if (target != null && target.isPlayer) {
+            synchronized (AttackAudit.class) {
+                if (spawnedInside.contains(p.getUniqueID())) hit = "player:spawned-inside";
+            }
+        }
+        String row = String.join(",",
+            "hit",
+            side(p.isServer(), p.isClient()),
+            p.getStringID(),
+            p.getClass().getSimpleName(),
+            p.getClass().getSuperclass().getSimpleName(),
+            describeOwner(owner, p.getOwnerID()),
+            "true",
+            String.valueOf(p.isSolid),
+            "", "", "", "", "", "",
+            hit);
         record(row);
     }
 
@@ -84,11 +132,33 @@ public final class AttackAudit {
             "", "", "", "",
             String.valueOf(e.destroysObjects),
             String.valueOf(e.destroysTiles),
-            String.valueOf(e.toolTier));
+            String.valueOf(e.toolTier),
+            "");
         record(row);
     }
 
     /** Writes the audit to {@code <appdata>/bossphysics-audit.csv} and returns the lines for the command log. */
+    /** One line per projectile and side: how many times it hit a wall, a player, another mob, or nothing. */
+    public static synchronized List<String> summarizeHits() {
+        Map<String, int[]> totals = new TreeMap<>();
+        for (Map.Entry<String, Entry> e : entries.entrySet()) {
+            String[] cols = e.getKey().split(",", -1);
+            if (!cols[0].equals("hit")) continue;
+            int[] t = totals.computeIfAbsent(cols[2] + " (" + cols[1] + ", solid=" + cols[7] + ")", k -> new int[5]);
+            String target = cols[14];
+            int slot = target.startsWith("wall") ? 0 : target.equals("player") ? 1 : target.startsWith("player") ? 2
+                : target.startsWith("mob") ? 3 : 4;
+            t[slot] += e.getValue().count;
+        }
+        List<String> lines = new ArrayList<>();
+        for (Map.Entry<String, int[]> e : totals.entrySet()) {
+            int[] t = e.getValue();
+            lines.add("hits " + e.getKey() + ": wall=" + t[0] + " player=" + t[1] + " player(spawned inside box)=" + t[2]
+                + " mob=" + t[3] + " none=" + t[4]);
+        }
+        return lines;
+    }
+
     public static synchronized List<String> dump() throws IOException {
         File file = new File(GlobalData.appDataPath(), "bossphysics-audit.csv");
         List<String> lines = new ArrayList<>();

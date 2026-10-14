@@ -1,5 +1,6 @@
 package bossphysics.debug;
 
+import bossphysics.rules.ProjectileRules;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -17,8 +18,12 @@ import necesse.entity.mobs.Mob;
  * the boss unloads on the client and comes back (the case where a client may not resolve a projectile's owner), then
  * remove it. When the last boss is done the audit is dumped and, if requested, the game exits.
  *
+ * <p>In <b>walled</b> mode the player instead stands inside a closed stone-wall box ({@link TestArena}) for the whole
+ * fight, and the summary reports how often each boss projectile hit a wall versus the player.
+ *
  * <p>Launching with {@code -Dbossphysics.autotest=boss1,boss2} starts a run as soon as a player is in the world, and
- * exits afterwards; {@code -Dbossphysics.autotest.seconds=N} sets the fight length per boss.
+ * exits afterwards; {@code -Dbossphysics.autotest.seconds=N} sets the fight length per boss and
+ * {@code -Dbossphysics.autotest.mode=walled} selects walled mode.
  */
 public final class AutoTest {
 
@@ -26,6 +31,7 @@ public final class AutoTest {
 
     private static final String PROP_BOSSES = "bossphysics.autotest";
     private static final String PROP_SECONDS = "bossphysics.autotest.seconds";
+    private static final String PROP_MODE = "bossphysics.autotest.mode";
     private static final long SETTLE_MS = 8000;
     // Evils Protector despawns after 100 ticks (5s) with no player within 1280 pixels.
     private static final long AWAY_MS = 4000;
@@ -39,6 +45,7 @@ public final class AutoTest {
     private static final Deque<String> queue = new ArrayDeque<>();
     private static long fightMs;
     private static boolean exitWhenDone;
+    private static boolean walled;
     private static long phaseStart;
     private static String current;
     private static Mob boss;
@@ -52,16 +59,18 @@ public final class AutoTest {
         return System.getProperty(PROP_BOSSES) != null;
     }
 
-    public static synchronized String start(List<String> bosses, boolean exitAfter) {
+    public static synchronized String start(List<String> bosses, boolean exitAfter, boolean walledMode) {
         queue.clear();
+        walled = walledMode;
         queue.addAll(bosses);
         fightMs = Long.getLong(PROP_SECONDS, 45L) * 1000L;
         exitWhenDone = exitAfter;
         AttackAudit.clear();
         AttackAudit.setEnabled(true);
         enter(Phase.WAIT_PLAYER);
-        log("started: " + bosses + ", " + fightMs / 1000 + "s per boss");
-        return "Autotest started: " + bosses;
+        log("started: " + bosses + ", " + fightMs / 1000 + "s per boss" + (walled ? ", walled" : "")
+            + (ProjectileRules.isEnabled() ? "" : ", projectile rules OFF"));
+        return "Autotest started: " + bosses + (walled ? " (walled)" : "");
     }
 
     public static synchronized String stop() {
@@ -75,7 +84,9 @@ public final class AutoTest {
         if (!launchChecked) {
             launchChecked = true;
             String prop = System.getProperty(PROP_BOSSES);
-            if (prop != null) start(prop.isEmpty() ? DEFAULT_BOSSES : Arrays.asList(prop.split(",")), true);
+            if (prop != null) {
+                start(prop.isEmpty() ? DEFAULT_BOSSES : Arrays.asList(prop.split(",")), true, "walled".equals(System.getProperty(PROP_MODE)));
+            }
         }
         if (phase == Phase.IDLE || phase == Phase.DONE) return;
 
@@ -92,8 +103,16 @@ public final class AutoTest {
         switch (phase) {
             case WAIT_PLAYER:
                 client.playerMob.hasInvincibility = true;
-                homeX = client.playerMob.getX();
-                homeY = client.playerMob.getY();
+                int tileX = client.playerMob.getTileX();
+                int tileY = client.playerMob.getTileY();
+                homeX = tileX * 32 + 16;
+                homeY = tileY * 32 + 16;
+                if (walled) {
+                    TestArena.build(client.getLevel(), tileX, tileY);
+                    AttackAudit.setInsideArea(TestArena.wallBounds(tileX, tileY));
+                    BossSpawner.teleport(client, homeX, homeY);
+                    log("built walled arena at tile " + tileX + "," + tileY);
+                }
                 enter(Phase.SETTLE);
                 break;
             case SETTLE:
@@ -119,7 +138,11 @@ public final class AutoTest {
                 if (boss.removed()) {
                     log(current + " removed itself (died or despawned)");
                     enter(Phase.GAP);
-                } else if (elapsed >= fightMs / 2) {
+                } else if (walled && elapsed >= fightMs) {
+                    removeBoss();
+                    log("finished " + current);
+                    enter(Phase.GAP);
+                } else if (!walled && elapsed >= fightMs / 2) {
                     BossSpawner.teleport(client, homeX + AWAY_DISTANCE, homeY);
                     log("player moved away from " + current);
                     enter(Phase.AWAY);
@@ -157,6 +180,7 @@ public final class AutoTest {
         enter(Phase.DONE);
         try {
             for (String line : AttackAudit.dump()) log(line);
+            for (String line : AttackAudit.summarizeHits()) log(line);
         } catch (IOException e) {
             log("could not write audit: " + e.getMessage());
         }

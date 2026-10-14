@@ -21,16 +21,17 @@ import necesse.entity.mobs.Mob;
  * <ul>
  * <li>{@code /bp debug <on|off|dump|clear>}: the attack audit used to build the projectile whitelist</li>
  * <li>{@code /bp spawnboss <mobid> [distance]}: spawns a boss near you (default 960 pixels, like summon items)</li>
- * <li>{@code /bp autotest <start|stop> [boss1,boss2,...]}: scripted boss runs feeding the audit</li>
+ * <li>{@code /bp autotest <start|walled|stop> [boss1,boss2,...]}: scripted boss runs feeding the audit; walled
+ * mode puts you in a stone-wall box</li>
  * </ul>
  */
 public class BossPhysicsCommand extends ModularChatCommand {
 
     public BossPhysicsCommand() {
-        super("bp", "Boss Physics debug tools: debug <on|off|dump|clear> | spawnboss <mobid> [distance] | autotest <start|stop> [bosses]",
+        super("bp", "Boss Physics debug tools: debug <on|off|dump|clear> | spawnboss <mobid> [distance] | autotest <start|walled|stop> [bosses]",
             PermissionLevel.ADMIN, false,
             new CmdParameter("subcommand", new PresetStringParameterHandler("debug", "spawnboss", "autotest")),
-            new CmdParameter("arg", new StringParameterHandler(null, "on", "off", "dump", "clear", "start", "stop",
+            new CmdParameter("arg", new StringParameterHandler(null, "on", "off", "dump", "clear", "start", "walled", "stop",
                 "evilsprotector", "queenspider", "swampguardian", "crystaldragon"), true),
             new CmdParameter("extra", new StringParameterHandler(), true));
     }
@@ -48,12 +49,13 @@ public class BossPhysicsCommand extends ModularChatCommand {
                 runSpawnBoss(serverClient, arg, extra, logs);
                 break;
             case "autotest":
-                if ("start".equals(arg)) {
-                    logs.add(AutoTest.start(extra == null ? AutoTest.DEFAULT_BOSSES : Arrays.asList(extra.split(",")), false));
+                if ("start".equals(arg) || "walled".equals(arg)) {
+                    logs.add(AutoTest.start(extra == null ? AutoTest.DEFAULT_BOSSES : Arrays.asList(extra.split(",")), false,
+                        "walled".equals(arg)));
                 } else if ("stop".equals(arg)) {
                     logs.add(AutoTest.stop());
                 } else {
-                    logs.add("Usage: /bp autotest <start|stop> [boss1,boss2,...]");
+                    logs.add("Usage: /bp autotest <start|walled|stop> [boss1,boss2,...]");
                 }
                 break;
             default:

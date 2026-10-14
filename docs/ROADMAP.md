@@ -47,16 +47,18 @@
 
 ### M1 墙挡住 boss 弹体
 
-- [ ] patch `Projectile.postInit()` 的出口（复用 M0 的 `ProjectilePostInitPatch`）：满足"owner 不为 null、是 boss、弹体类在白名单"时，设 `isSolid = true`
-- [ ] 白名单的形式是"弹体 stringID → 规则"，规则包括：是否 solid、是否允许反弹（默认不反弹，`canBounce = false`）
-- [ ] 客户端 owner 为 null 的兜底：M0 单人实测未出现，保留"owner 为 null 时只按弹体类判断"作为防御性分支
-- [ ] 测试 boss 调整为 Evils Protector 和 Crystal Dragon（原来的 3 个里只有 Crystal Dragon 有可测的直射弹体）；Queen Spider 用来验证抛物线弹体不受影响
-- [ ] 回旋镖和跟踪弹撞墙后的行为单独验证（如 `ReaperScytheProjectile` 撞墙会返回 boss）
+- [x] patch `Projectile.postInit()` 的出口（`ProjectilePostInitPatch` → `ProjectileRules.apply`）：发射者是 boss 且弹体在白名单里时，设 `isSolid = true`；`canBounce` 是 protected 字段，用 `@Advice.FieldValue` 写回
+- [x] 白名单 `ProjectileRules`：弹体 stringID → `ProjectileRule(solid, allowBounce)`。首批为 `evilsprotector1`、`evilsprotector2`、`crystaldragonshard`，规则都是 `BLOCKED`（挡住、不反弹）
+- [x] 发射者为 null 的兜底：只按弹体类判断（M0 实测没出现过）
+- [x] `-Dbossphysics.rules=off` 关闭全部规则，用于对照测试
+- [x] 自动测试加"墙盒模式"（`tools/autotest.sh <bosses> <秒数> walled <on|off>`）：玩家站在 7×7 石墙圈中央，按弹体统计打墙、打玩家的次数，并区分"在墙圈内生成"的弹体
+- [ ] 联机实测（目前只测了单人模式）
+- [ ] 扩充白名单到其他 boss（`docs/projectile-audit.md` 第 3 节的候选），回旋镖和跟踪弹要单独验证撞墙行为
 
-验收：
-- 测试 boss 的直射弹体打在墙上会消失，并有撞墙粒子效果
-- 墙后的玩家不受伤
-- 联机时客户端和服务端表现一致，不出现"看着被墙挡了却还掉血"
+验收（2026-10-14 单人实测，详见审计文档第 6 节）：
+- [x] 白名单弹体打到墙上就消失：Evils Protector 22+4 次、Crystal Dragon 61 次全部停在墙上，两端计数一致
+- [x] 墙后的玩家不受伤：墙外生成的白名单弹体打中墙盒内玩家的次数为 0（对照组：规则关闭时会穿墙打中）
+- [x] 联机一致性的单人部分：客户端和服务端的撞墙次数完全一致
 
 ### M2 弹体撞墙造成伤害
 
