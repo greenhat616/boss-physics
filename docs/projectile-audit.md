@@ -227,3 +227,101 @@ CSV 各列：`kind, side, id, class, superclass, owner, ownerIsBoss, isSolid, ca
 | 客户端 | true（默认） | **false** | 0 | 2 |
 
 客户端照服务器的设置模拟，两端一致；客户端的设置文件保持原样。
+
+## 10. 全部 boss 的调查（2026-10-14）
+
+静态调查（反编译源码）加一轮空地实测（每个 boss 40 秒）。
+
+### 能否在地表测试
+
+| 情况 | boss |
+|---|---|
+| 正常战斗 | evilsprotector（只在夜里）、queenspider、chieftain（缺少场地，部分招式不触发）、swampguardian、ancientvulture、piratecaptain、reaper、cryoqueen、thecursedcrone（缺少场地，井字棋和骷髅阶段不触发）、pestwarden、sageandgrit（要生成 `sageandgrit` 起始怪）、fallenwizard（缺少场地，40 秒内没放弹体）、motherslime、nightswarm（要生成起始怪）、spiderempress、sunlightchampion、moonlightdancer、crystaldragon、mutanthydra、ascendedwizard、thevoid |
+| 无法测试 | voidwizard：需要地牢场地，没有目标时会传送回场地的 boss 位置，地表上三次都完全不行动 |
+
+### 攻击类型
+
+**直射、原版穿墙，加入白名单候选**：`ancientvulture`、`vulturehatchling`、`reaperscythe`（回旋镖）、`cryoshard`、`cryovolley`、`cryowave`、`fallenwizardwave`、`empressslash`、`empresswebball`（回旋镖）、`starvail`、`crescentdisc`、`ascendedbolt`、`ascendedorb`、`ascendedshard`、`ascendedslash`、`ascendedbeam`、`mutanthydragoospray`
+
+**原版就被墙挡，只差拆墙**：`swamprazor`（反弹 8 次）、`voidwizardwave`、`voidwizardhoming`、`voidwizardmissile`、`voidwizardclone`、`fallenwizardball`、`fallenwizardscepter`、`chieftainshield`、`spiritskull`
+
+**不改**：抛物线和落点生成类（`queenspideregg/spit`、`swampboulder`、`slimeegg`、`crystalgolemspawn`、`ascendedgolemspawn`、`ascendedshardbomb`、`mutanthydraspit`、`spiritbeam`），预警标记（`cryowarning*`、`empressslashwarning`），贴地类（`cryoquake*`、`empressacid`、`earthspikesprojectile`）；`captaincannonball` 第一阶段是会被墙挡的实心弹，第二阶段（飞船）是抛射，保持原版
+
+**激光和光束**：`fallenwizardbeam` 和 The Void 的三种光束原版就检查墙；`crystaldragonlaser` 不检查，仍然穿墙
+
+**爆炸**：可加入 `captaincannonballexplosion`（半径 100）、`voidwizardexplosion`（55）、`cursedcronespiritbeamsexplosion`（65）、`voidrainexplosion`（75）；`supernovaexplosion` 半径 650，会夷平一大片，不加；`ascendedbombexplosion` 原版就拆墙（等级 10）
+
+### 召唤物
+
+| 召唤物 | 召唤者 | 类型 | 拆墙寻路是否有用 |
+|---|---|---|---|
+| `portalminion` | Evils Protector | 近战，地面 | 有用 |
+| `spiderhatchling` | Queen Spider | 近战，地面 | 有用 |
+| `warriorslime` | Mother Slime | 近战，地面 | 有用 |
+| `cursedcronespiritghoul` | The Cursed Crone | 近战，地面 | 有用 |
+| `crystalgolem`、`ascendedgolem` | Crystal Dragon、Ascended Wizard | 远程（光束会被墙挡，开火前检查视线），地面 | 有用：走到墙边拆 |
+| `piraterecruit`、`pirateparrot` | Pirate Captain | 远程（子弹会被墙挡，检查视线）/ 近战，地面 | 原版海盗忽略这个 buff，需要额外 patch |
+| `vulturehatchling` | Ancient Vulture | 飞行，接触伤害，远程弹体穿墙 | 无用（飞行） |
+| `reaperspirit`、`spirittornado`、`fallendragon`、`nightswarmbat`、`sunlightgauntlet`、`ascendedbat`、`ascendedgauntlet` | 各 boss | 飞行或无碰撞 | 无用 |
+| `voidwizardclone` | Void Wizard | 不移动，远程 | 无用；弹体本来就被墙挡 |
+
+结论：没有需要"朝墙开火"AI 的召唤物（见 ROADMAP M5 A）。
+
+## 11. 扩展到全部 boss 的平衡性调整（2026-10-14）
+
+### 第一轮：直接加入全部候选（石墙，每场 45 秒）
+
+21 个能在地表测试的 boss 里 14 个通过，7 个失败：
+
+| boss | 失败原因 | 处理 |
+|---|---|---|
+| Chieftain | 墙盒里完全不行动（地面 boss 进不来，地刺发射前检查视线） | 场地 boss，原版场地受保护，移出默认设置 |
+| The Cursed Crone、Fallen Wizard | 离开自己的场地后连空地上都几乎不打 | 同上 |
+| Pirate Captain | 玩家躲在墙后时不发起攻击（原版视线判定），半掩体、带门墙盒里都不行动 | 需要改 AI，移出默认设置；设置里可手动加 |
+| Spider Empress、Ascended Wizard、The Void | 第一面墙 4.9 / 2.1 / 1.9 秒就破（要求 ≥ 5 秒） | 见下 |
+
+还发现两个问题：
+- **家具被打坏**：后期 boss 的弹体打碎了附近房子里的床、书架、箱子、工作台。原因是拆墙逻辑对弹体撞到的任何物体都生效。改为只打坏 `BREAKABLE_OBJECTS` 里的类别（默认墙、门、窗、栅栏、树、石头），在 `EntityManager.doObjectDamage` 统一过滤，弹体、爆炸、召唤物三条路径都管住。家具仍然挡弹体，但不掉血。复测中一个工作台、一个海盗宝箱被弹体打中，伤害都被拒绝
+- 测试框架把"墙后的 boss 什么也做不了"当成了"空场"去重试。改为只在空地布局重试，墙后的不行动是有效结果
+
+### 第二轮：每发伤害上限
+
+`maxWallDamageFraction = 0.25`：一发弹体最多扣墙耐久的 25%（墙都是 100 耐久，即最多 25 点），一面墙至少挨 4 下。
+
+| boss | 破墙时间（无上限 → 有上限） |
+|---|---|
+| Spider Empress | 4.9 → 13.7 秒 |
+| Ascended Wizard | 2.1 → 6.0 秒 |
+| The Void | 1.9 → 4.4 秒，仍未通过 |
+| Moonlight Dancer | 5.6 → 13.7 秒 |
+| Crystal Dragon | 7.0 → 18.1 秒 |
+
+另外 Spider Empress 出现 1 次白名单弹体隔墙命中：`empresswebball` 是回旋镖，原版在回程时把它改成不碰墙，于是穿墙飞回来。修复：白名单回旋镖回程保持碰墙，回程撞墙直接消失（`ProjectileReturnPatch`、`ProjectileRules.endReturningAtWall`）。
+
+The Void 每秒约 5 发光弹打墙，单靠上限不够，加了按 boss 的对墙伤害倍率 `BOSS_WALL_DAMAGE`，The Void 设为 0.5。
+
+### 最终一轮：17 个 boss 全部通过
+
+| boss | box 命中 | box 剩余墙 | 破墙时间 | doorbox |
+|---|---|---|---|---|
+| Evils Protector | 35 | 21/24 | 13.2 秒 | 门先破（召唤物打门 5 下） |
+| Queen Spider | 66 | 23/24 | 13.7 秒 | 门先破（5 下） |
+| Swamp Guardian | 50 | 15/24 | 6.1 秒 | 墙先破（巨石） |
+| Ancient Vulture | 14 | 23/24 | 20.6 秒 | 墙先破 |
+| Reaper | 33 | 24/24 | 没破 | 没破 |
+| Cryo Queen | 6 | 18/24 | 28.3 秒 | 墙先破 |
+| Pest Warden | 33 | 24/24 | 没破 | 没破 |
+| Sage & Grit | 15 | 24/24 | 没破 | 没破 |
+| Mother Slime | 40 | 23/24 | 30.0 秒 | 门先破（5 下） |
+| Night Swarm | 14 | 24/24 | 没破 | 没破 |
+| Spider Empress | 44 | 13/24 | 9.3 秒 | 墙先破 |
+| Sunlight Champion | 72 | 24/24 | 没破 | 没破 |
+| Moonlight Dancer | 10 | 17/24 | 11.9 秒 | 墙先破 |
+| Crystal Dragon | 22 | 23/24 | 18.3 秒 | 没破 |
+| Mutant Hydra | 64 | 24/24 | 没破 | 没破 |
+| Ascended Wizard | 8 | 14/24 | 5.5 秒 | 墙先破 |
+| The Void | 40 | 0/24 | 18.4 秒 | 门先破（被弹体打破） |
+
+- "没破"的 boss 靠本体越墙或近战够到人维持压力：Reaper、Pest Warden、Sage & Grit、Night Swarm、Sunlight Champion 是飞行或蠕虫类，Mutant Hydra 的头部近战能越过墙
+- 接近阈值：Ascended Wizard 5.5 秒、Swamp Guardian 6.1 秒（5 秒为下限），重跑可能失败，留给下一轮调整
+- Cryo Queen 的 box 压力 0.22，低于 0.25，靠 60 秒内破墙通过

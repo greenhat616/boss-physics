@@ -3,7 +3,7 @@ package bossphysics.rules;
 import bossphysics.config.BossPhysicsConfig;
 import bossphysics.debug.AttackAudit;
 import java.util.Collections;
-import java.util.Set;
+import java.util.Map;
 import java.util.WeakHashMap;
 import necesse.entity.levelEvent.explosionEvent.ExplosionEvent;
 import necesse.entity.mobs.Mob;
@@ -18,8 +18,8 @@ import necesse.entity.mobs.Mob;
  */
 public final class ExplosionRules {
 
-    /** Events this mod made destructive; only these get {@code explosionWallDamageMultiplier}. */
-    private static final Set<ExplosionEvent> ENABLED = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
+    /** Events this mod made destructive, with their object damage multiplier. */
+    private static final Map<ExplosionEvent, Float> ENABLED = Collections.synchronizedMap(new WeakHashMap<>());
 
     private ExplosionRules() {
     }
@@ -37,12 +37,21 @@ public final class ExplosionRules {
         }
         event.destroysObjects = true;
         event.toolTier = Math.max(event.toolTier, ProjectileRules.toolTierOf(owner));
-        ENABLED.add(event);
+        ENABLED.put(event, config.explosionWallDamageMultiplier * ProjectileRules.wallDamageMultiplierOf(owner));
         AttackAudit.recordExplosionRule(event, "breaksobjects");
     }
 
-    /** The object damage multiplier for this event: {@code explosionWallDamageMultiplier} if this mod enabled it. */
+    /** Whether this mod made the event destructive. */
+    public static boolean isEnabled(ExplosionEvent event) {
+        return ENABLED.containsKey(event);
+    }
+
+    /**
+     * The object damage multiplier for this event if this mod enabled it: {@code explosionWallDamageMultiplier} x the
+     * boss's {@code BOSS_WALL_DAMAGE}.
+     */
     public static float objectDamageMultiplier(ExplosionEvent event) {
-        return ENABLED.contains(event) ? BossPhysicsConfig.get().explosionWallDamageMultiplier : 1.0F;
+        Float multiplier = ENABLED.get(event);
+        return multiplier != null ? multiplier : 1.0F;
     }
 }

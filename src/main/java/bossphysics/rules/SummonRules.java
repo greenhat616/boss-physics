@@ -4,6 +4,7 @@ import bossphysics.config.BossPhysicsConfig;
 import bossphysics.debug.AttackAudit;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -15,6 +16,7 @@ import necesse.entity.mobs.buffs.BuffEventSubscriber;
 import necesse.entity.mobs.buffs.BuffModifiers;
 import necesse.entity.mobs.buffs.staticBuffs.Buff;
 import necesse.level.gameObject.GameObject;
+import necesse.level.maps.Level;
 import necesse.level.maps.LevelObject;
 
 /**
@@ -36,7 +38,12 @@ public final class SummonRules {
     private static final double DOOR_COST = 20.0;
     private static final double WALL_COST_FACTOR = 4.0;
 
+    /** Door hits further apart than this start the count again. */
+    private static final long DOOR_HIT_MEMORY_MS = 30000;
+
     private static Buff buff;
+    /** Door tile key -> hits so far. Server thread only. */
+    private static final Map<Long, DoorHits> DOOR_HITS = new HashMap<>();
     private static final List<Mob> PENDING = new ArrayList<>();
     /** Tagged summons and the tool tier of the boss that summoned them. */
     private static final Map<Mob, Float> TIERS = Collections.synchronizedMap(new WeakHashMap<>());
@@ -99,6 +106,7 @@ public final class SummonRules {
         if (tier == null) return true;
         if (!BossPhysicsConfig.get().summonsBreakWalls) return false;
         if (lo.object.toolTier > tier) return false;
+        if (ObjectFilter.refuses(lo.object, mob)) return false;
         return !SettlementGuard.protects(lo.level, lo.tileX, lo.tileY);
     }
 
@@ -113,8 +121,49 @@ public final class SummonRules {
         return object.objectHealth * 2.5 * WALL_COST_FACTOR;
     }
 
+    /** Damage a tagged summon deals per break-down hit on a wall: vanilla x {@code summonWallDamageMultiplier}. */
+    public static int breakDownDamage(Mob mob, LevelObject lo, int vanillaDamage) {
+        if (!TIERS.containsKey(mob) || lo.object.isDoor) return vanillaDamage;
+        return Math.round(vanillaDamage * BossPhysicsConfig.get().summonWallDamageMultiplier);
+    }
+
+    /**
+     * Counts a tagged summon's hit on a door; the {@code summonDoorHits}-th hit within {@link #DOOR_HIT_MEMORY_MS} of
+     * the last one breaks the door outright (it drops its item like a broken wall). Vanilla break-down damage alone is
+     * capped at about 10 per tile per second and doors heal between bursts, so summons could take minutes.
+     */
+    public static void onBreakDownHit(Mob mob, LevelObject lo) {
+        int needed = BossPhysicsConfig.get().summonDoorHits;
+        if (needed <= 0 || !lo.object.isDoor || !TIERS.containsKey(mob)) return;
+        long now = mob.getTime();
+        long key = ((long) lo.tileX << 32) ^ (lo.tileY & 0xFFFFFFFFL);
+        DoorHits hits = DOOR_HITS.get(key);
+        if (hits == null || hits.level != lo.level || now - hits.lastHit > DOOR_HIT_MEMORY_MS) {
+            hits = new DoorHits(lo.level);
+            DOOR_HITS.put(key, hits);
+        }
+        hits.count++;
+        hits.lastHit = now;
+        if (hits.count < needed) return;
+        DOOR_HITS.remove(key);
+        int x = lo.tileX;
+        int y = lo.tileY;
+        lo.level.entityManager.doObjectDamage(0, x, y, lo.object.objectHealth * 100, lo.object.toolTier, mob, null, true,
+            x * 32 + 16, y * 32 + 16);
+    }
+
     public static boolean isTagged(Mob mob) {
         return TIERS.containsKey(mob);
+    }
+
+    private static final class DoorHits {
+        final Level level;
+        int count;
+        long lastHit;
+
+        DoorHits(Level level) {
+            this.level = level;
+        }
     }
 
     /** Invisible marker that gives a summon the vanilla object-breaking pathing. */

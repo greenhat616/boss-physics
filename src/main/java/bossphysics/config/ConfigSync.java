@@ -44,11 +44,14 @@ public final class ConfigSync {
             + c.summonsBreakWalls + " damageInSettlements=" + c.damageInSettlements);
         lines.add("wallDamageMultiplier=" + c.wallDamageMultiplier + " explosionWallDamageMultiplier="
             + c.explosionWallDamageMultiplier + " wallDamageDelayMs=" + c.wallDamageDelayMs + " defaultBossToolTier="
-            + c.defaultBossToolTier);
+            + c.defaultBossToolTier + " summonDoorHits=" + c.summonDoorHits + " summonWallDamageMultiplier="
+            + c.summonWallDamageMultiplier);
         lines.add("bossToolTiers=" + c.bossToolTiers);
+        lines.add("bossWallDamage=" + c.bossWallDamage);
         lines.add("projectiles=" + c.projectiles);
         lines.add("explosions=" + c.explosions);
         lines.add("summons=" + c.summons);
+        lines.add("breakableObjects=" + c.breakableObjects + " maxWallDamageFraction=" + c.maxWallDamageFraction);
         return lines;
     }
 }

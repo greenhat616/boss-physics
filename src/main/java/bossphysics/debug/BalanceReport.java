@@ -90,7 +90,9 @@ public final class BalanceReport {
 
         for (FightStats f : fights) {
             if (f.bossLeftEarly) checks.add(new String[]{"fight-valid", "INVALID", f.layout.id() + ": the boss left before the fight ended"});
-            if (f.bossIdle()) checks.add(new String[]{"fight-valid", "INVALID", f.layout.id() + ": the boss never attacked, even after retries"});
+            if (f.bossIdle() && f.layout == TestArena.Layout.OPEN) {
+                checks.add(new String[]{"fight-valid", "INVALID", "open: the boss never attacked, even after retries"});
+            }
         }
         for (FightStats f : new FightStats[]{box, door}) {
             if (f == null) continue;

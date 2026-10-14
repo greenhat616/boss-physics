@@ -57,7 +57,9 @@ public final class WallDamage {
             AttackAudit.recordWallDamageSkip(projectile, "settlement");
             return;
         }
-        int damage = Math.round(projectile.getDamage().damage * config.wallDamageMultiplier);
+        int cap = Math.max(1, Math.round(object.getObject().objectHealth * config.maxWallDamageFraction));
+        float raw = Math.min(cap, projectile.getDamage().damage * config.wallDamageMultiplier);
+        int damage = Math.round(raw * ProjectileRules.wallDamageMultiplierOf(projectile.getOwner()));
         if (damage <= 0) {
             AttackAudit.recordWallDamageSkip(projectile, "nodamage");
             return;

@@ -3,6 +3,7 @@ package bossphysics.rules;
 import bossphysics.config.BossPhysicsConfig;
 import necesse.entity.mobs.Mob;
 import necesse.entity.projectile.Projectile;
+import necesse.level.maps.LevelObjectHit;
 
 /**
  * Applies the projectile whitelist ({@code PROJECTILES} in the settings): which boss projectiles are made solid
@@ -41,6 +42,37 @@ public final class ProjectileRules {
         return canBounce && rule.allowBounce;
     }
 
+    /** Called after {@code returnToOwner()}: vanilla made the boomerang non-solid; a whitelisted one stays solid. */
+    public static void keepSolidOnReturn(Projectile projectile) {
+        ProjectileRule rule = ruleFor(projectile);
+        if (rule != null && rule.solid) projectile.isSolid = true;
+    }
+
+    /**
+     * A whitelisted boomerang that hits a wall while returning is removed instead of turning back again (vanilla would
+     * call {@code returnToOwner()} at every wall hit). Returns whether the vanilla hit handling must be skipped.
+     */
+    public static boolean endReturningAtWall(Projectile projectile, Mob mob, LevelObjectHit object) {
+        if (mob != null || object == null || !projectile.returningToOwner() || ruleFor(projectile) == null) return false;
+        projectile.remove();
+        return true;
+    }
+
+    /** The boss a projectile or explosion owner counts as: a worm boss's body segment is its head. */
+    public static Mob bossOf(Mob mob) {
+        if (mob == null) return null;
+        Mob master = mob.getSpawnPacketMaster();
+        return master != null && master != mob ? master : mob;
+    }
+
+    /** {@code BOSS_WALL_DAMAGE} for the boss behind this owner, 1 if unlisted. */
+    public static float wallDamageMultiplierOf(Mob owner) {
+        Mob boss = bossOf(owner);
+        if (boss == null) return 1.0F;
+        Float multiplier = BossPhysicsConfig.get().bossWallDamage.get(boss.getStringID());
+        return multiplier != null ? multiplier : 1.0F;
+    }
+
     /**
      * The tool tier a boss breaks walls with, compared against the wall's {@code toolTier} by vanilla. A worm boss's
      * body segment (also a boss mob) uses its head's tier.
@@ -48,8 +80,6 @@ public final class ProjectileRules {
     public static float toolTierOf(Mob boss) {
         BossPhysicsConfig config = BossPhysicsConfig.get();
         if (boss == null) return config.defaultBossToolTier;
-        Mob master = boss.getSpawnPacketMaster();
-        if (master != null && master != boss) boss = master;
-        return config.toolTierFor(boss.getStringID());
+        return config.toolTierFor(bossOf(boss).getStringID());
     }
 }

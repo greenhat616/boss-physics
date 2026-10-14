@@ -2,6 +2,7 @@ package bossphysics.patches;
 
 import bossphysics.debug.AttackAudit;
 import bossphysics.debug.FightStats;
+import bossphysics.rules.ProjectileRules;
 import bossphysics.rules.WallDamage;
 import necesse.engine.modLoader.annotations.ModMethodPatch;
 import necesse.engine.network.server.ServerClient;
@@ -18,10 +19,12 @@ import net.bytebuddy.asm.Advice;
     arguments = {Mob.class, LevelObjectHit.class, float.class, float.class, boolean.class, ServerClient.class})
 public class ProjectileOnHitPatch {
 
-    @Advice.OnMethodEnter
-    static void onEnter(@Advice.This Projectile projectile, @Advice.Argument(0) Mob mob, @Advice.Argument(1) LevelObjectHit object) {
+    /** Returning true skips the original: a whitelisted boomerang that hits a wall on its way back ends there. */
+    @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
+    static boolean onEnter(@Advice.This Projectile projectile, @Advice.Argument(0) Mob mob, @Advice.Argument(1) LevelObjectHit object) {
         AttackAudit.recordHit(projectile, mob, object);
         FightStats.onProjectileHit(projectile, mob, object);
         WallDamage.onProjectileHit(projectile, mob, object);
+        return ProjectileRules.endReturningAtWall(projectile, mob, object);
     }
 }

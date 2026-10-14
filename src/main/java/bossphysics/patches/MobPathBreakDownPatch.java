@@ -22,6 +22,7 @@ public class MobPathBreakDownPatch {
     @Advice.OnMethodExit
     static void onExit(@Advice.This Mob mob, @Advice.Argument(0) LevelObject lo, @Advice.Enter boolean refused,
                        @Advice.Return boolean hit) {
+        if (hit) SummonRules.onBreakDownHit(mob, lo);
         FightStats.onBreakDown(mob, lo, refused, hit);
     }
 }

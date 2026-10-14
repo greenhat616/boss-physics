@@ -54,7 +54,7 @@ public final class AutoTest {
 
     private enum Phase { IDLE, WAIT_PLAYER, MOVE, SETTLE, FIGHT, AWAY, RETURNED, GAP, DONE }
 
-    /** A fight whose boss was idle (no attack at all) or left early is retried on a fresh arena this many times. */
+    /** An open-field fight whose boss was idle, or any fight whose boss left early, is retried this many times. */
     private static final int IDLE_RETRIES = 2;
 
     private static final class Job {
@@ -267,7 +267,10 @@ public final class AutoTest {
             stats.bossLeftEarly = bossLeft;
             stats.endPositions = positions;
             log(stats.describe());
-            if ((stats.bossIdle() || bossLeft) && current.layout != null && current.attempt < IDLE_RETRIES) {
+            // An idle boss behind walls is a result (the walls stopped it), not a broken fight; only the open field
+            // must show the boss fighting.
+            boolean idleInOpen = stats.bossIdle() && current.layout == TestArena.Layout.OPEN;
+            if ((idleInOpen || bossLeft) && current.layout != null && current.attempt < IDLE_RETRIES) {
                 log("boss was " + (bossLeft ? "gone early" : "idle") + ", retrying " + current.boss + " " + current.layout.id()
                     + " on a new arena");
                 queue.addFirst(new Job(current.boss, current.layout, current.attempt + 1));

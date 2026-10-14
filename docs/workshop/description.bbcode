@@ -7,7 +7,7 @@ Hiding behind a wall now protects you, but only for a while.
 [*][b]Walls block direct fire[/b]: whitelisted boss projectiles (Evils Protector's bolts, Crystal Dragon's shards, ...) stop at the first wall instead of flying through it. Lobbed attacks (spider spit, eggs, boulders) still arc over walls.
 [*][b]Projectiles damage walls[/b]: every hit chips away at the wall until it breaks. Broken walls drop their item as usual.
 [*][b]Explosions break walls[/b]: Swamp Guardian's boulders blast objects around where they land.
-[*][b]Summons dig in[/b]: portal minions, spider hatchlings and crystal golems that cannot reach you walk around half cover, break the door of a closed room, and break a wall only when there is no door.
+[*][b]Summons dig in[/b]: portal minions, spider hatchlings and crystal golems that cannot reach you walk around half cover, break the door of a closed room (5 hits), and break a wall only when there is no door.
 [*][b]Tool tiers[/b]: each boss can only break walls up to its tier. Early bosses break wood, stone, brick and dungeon walls; Swamp Guardian also deep stone; Crystal Dragon also obsidian.
 [*][b]Safe places stay safe[/b]: no wall damage inside settlements by default; protected tiles (boss arenas, dungeons) and unbreakable objects are never damaged.
 [/list]
@@ -31,6 +31,7 @@ Edit [i]cfg/mods/a632079.bossphysics.cfg[/i] (every key is commented) and run [b
 [list]
 [*]Every player needs the mod: clients simulate projectiles too.
 [*]Lasers, charges and ground AoE attacks still go through walls.
+[*]Big bosses reach over walls: Queen Spider's melee hits players inside a wall ring from outside it (vanilla behaviour, kept for now).
 [*]Every default entry passed an automated balance test (open field, closed box, half cover, box with a door).
 [/list]
 
@@ -45,7 +46,7 @@ Edit [i]cfg/mods/a632079.bossphysics.cfg[/i] (every key is commented) and run [b
 [*][b]墙挡直射[/b]：列入白名单的 boss 弹体（Evils Protector 的弹幕、Crystal Dragon 的碎片等）撞墙即停，不再穿墙。抛物线类攻击（蜘蛛吐液、蛋、巨石）照样飞过墙。
 [*][b]弹体拆墙[/b]：每次命中都会削减墙的耐久，直到打穿。被拆的墙照常掉落物品。
 [*][b]爆炸拆墙[/b]：Swamp Guardian 的巨石落地时会炸毁周围的物体。
-[*][b]召唤物破墙[/b]：传送门小怪、蜘蛛幼崽、水晶傀儡够不到你时，有路就绕过半掩体；被围住时先破门，没有门才拆墙。
+[*][b]召唤物破墙[/b]：传送门小怪、蜘蛛幼崽、水晶傀儡够不到你时，有路就绕过半掩体；被围住时先破门（5 下破开），没有门才拆墙。
 [*][b]工具等级[/b]：每个 boss 只能打坏不超过自己等级的墙。前期 boss 能拆木、石、砖墙和地牢墙；Swamp Guardian 还能拆深石墙；Crystal Dragon 还能拆黑曜石墙。
 [*][b]安全区域不受影响[/b]：定居点内默认不拆墙；受保护的地块（boss 场地、地牢）和不可破坏的物体始终打不坏。
 [/list]
@@ -69,5 +70,6 @@ Edit [i]cfg/mods/a632079.bossphysics.cfg[/i] (every key is commented) and run [b
 [list]
 [*]所有玩家都需要安装：客户端也要模拟弹体。
 [*]激光、冲锋、地面范围攻击仍然穿墙。
+[*]大体型 boss 能隔着墙够到人：Queen Spider 站在墙外，近战照样能打到墙圈里的玩家（原版行为，暂时保留）。
 [*]所有默认条目都通过了自动化平衡性测试（空地、全封闭、半掩体、带门的封闭房间）。
 [/list]

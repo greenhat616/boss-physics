@@ -12,7 +12,7 @@ tools/balance-test.sh voidwizard,piratecaptain 45 --config my.cfg
 tools/balance-test.sh swampguardian 45 --set explosionWallDamageMultiplier=2.0
 ```
 
-- 每个 boss 依次打 4 场，每场换一块新场地（向东移 64 格，避开定居点），时间固定在午夜，boss 在玩家东边 700 像素处生成
+- 每个 boss 依次打 4 场（open、box、halfcover、doorbox），每场换一块新场地（向东移 64 格，避开定居点），时间固定在午夜，boss 在玩家东边 700 像素处生成
 - 玩家有调试无敌（只挡致命伤害），所以命中次数和伤害都照常记录
 - 报告写到 `build/balance/<时间>.md`，日志里也有 `balance <boss>: PASS/FAIL`
 - 判定阈值可以用 `-Dbossphysics.balance.<名称>=<值>` 覆盖（见下表），但默认设置必须按默认阈值通过
@@ -42,7 +42,7 @@ tools/balance-test.sh swampguardian 45 --set explosionWallDamageMultiplier=2.0
 | `hiding-not-free` | box | 破墙不晚于阈值，**或**压力不低于阈值 | `maxBreachSeconds`（60）、`minBoxPressure`（0.25） | 躲进墙里不能变成无伤打法 |
 | `client-server-sync` | box | 客户端和服务端的撞墙次数相差不超过阈值（至少容许 2 次） | `maxSyncDifference`（0.10） | 两端碰撞模拟一致；独立服务器测试时为 N/A |
 | `halfcover-reachable` | halfcover | 压力不低于阈值（没有 open 场时：命中 > 0） | `minHalfCoverPressure`（0.25） | 半掩体不能挡住 boss |
-| `fight-valid` | 全部 | boss 没有提前离开（死亡、白天离场、脱战） | — | 结果可信 |
+| `fight-valid` | 全部 | boss 没有提前离开（死亡、白天离场、脱战），并且在 open 布局里有攻击。不满足时换场地重打，最多 2 次。墙后的布局里 boss 不行动是有效结果（墙挡住了它），不重打 | — | 结果可信 |
 | `hits-through-walls` | box、doorbox | 仅信息 | — | 列出所有隔墙命中的来源，是扩充白名单的候选 |
 | `door-first` | doorbox | 仅信息 | — | 先破的是门还是墙 |
 
