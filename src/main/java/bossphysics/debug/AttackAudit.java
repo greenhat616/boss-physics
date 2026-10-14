@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import necesse.engine.GameLog;
 import necesse.engine.GlobalData;
+import necesse.entity.ObjectDamageResult;
 import necesse.entity.levelEvent.explosionEvent.ExplosionEvent;
 import necesse.entity.mobs.Mob;
 import necesse.entity.projectile.Projectile;
@@ -138,6 +139,55 @@ public final class AttackAudit {
     }
 
     /** Writes the audit to {@code <appdata>/bossphysics-audit.csv} and returns the lines for the command log. */
+    /**
+     * Records a wall-damage attempt by a whitelisted projectile: {@code <object>:destroyed}, {@code :damaged},
+     * {@code :refused} (0 damage applied: protected tile, tier too low, or vetoed by another mod) or {@code :none}
+     * (no object left to damage).
+     */
+    public static void recordWallDamage(Projectile p, String objectID, ObjectDamageResult result) {
+        if (!enabled) return;
+        String outcome = result == null ? "none" : result.destroyed ? "destroyed" : result.addedDamage > 0 ? "damaged" : "refused";
+        String row = String.join(",",
+            "walldamage",
+            side(p.isServer(), p.isClient()),
+            p.getStringID(),
+            p.getClass().getSimpleName(),
+            p.getClass().getSuperclass().getSimpleName(),
+            describeOwner(p.getOwner(), p.getOwnerID()),
+            "true",
+            String.valueOf(p.isSolid),
+            "", "", "", "", "", "",
+            objectID + ":" + outcome);
+        record(row);
+    }
+
+    /** Records why a whitelisted projectile's wall hit did not even try to damage the wall. */
+    public static void recordWallDamageSkip(Projectile p, String reason) {
+        if (!enabled) return;
+        record(String.join(",", "walldamage", side(p.isServer(), p.isClient()), p.getStringID(), p.getClass().getSimpleName(),
+            p.getClass().getSuperclass().getSimpleName(), describeOwner(p.getOwner(), p.getOwnerID()), "true",
+            String.valueOf(p.isSolid), "", "", "", "", "", "", "skipped:" + reason));
+    }
+
+    /** One line per projectile and object type: how its wall-damage attempts turned out. */
+    public static synchronized List<String> summarizeWallDamage() {
+        Map<String, int[]> totals = new TreeMap<>();
+        for (Map.Entry<String, Entry> e : entries.entrySet()) {
+            String[] cols = e.getKey().split(",", -1);
+            if (!cols[0].equals("walldamage")) continue;
+            String[] target = cols[14].split(":", 2);
+            int[] t = totals.computeIfAbsent(cols[2] + " -> " + target[0], k -> new int[4]);
+            int slot = target[1].equals("damaged") ? 0 : target[1].equals("destroyed") ? 1 : target[1].equals("refused") ? 2 : 3;
+            t[slot] += e.getValue().count;
+        }
+        List<String> lines = new ArrayList<>();
+        for (Map.Entry<String, int[]> e : totals.entrySet()) {
+            int[] t = e.getValue();
+            lines.add("walldamage " + e.getKey() + ": damaged=" + t[0] + " destroyed=" + t[1] + " refused=" + t[2] + " none=" + t[3]);
+        }
+        return lines;
+    }
+
     /** One line per projectile and side: how many times it hit a wall, a player, another mob, or nothing. */
     public static synchronized List<String> summarizeHits() {
         Map<String, int[]> totals = new TreeMap<>();

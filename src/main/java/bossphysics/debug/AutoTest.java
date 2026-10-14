@@ -23,7 +23,8 @@ import necesse.entity.mobs.Mob;
  *
  * <p>Launching with {@code -Dbossphysics.autotest=boss1,boss2} starts a run as soon as a player is in the world, and
  * exits afterwards; {@code -Dbossphysics.autotest.seconds=N} sets the fight length per boss and
- * {@code -Dbossphysics.autotest.mode=walled} selects walled mode.
+ * {@code -Dbossphysics.autotest.mode=walled} selects walled mode ({@code -Dbossphysics.autotest.wall=<objectid>} picks the
+ * wall, default {@code stonewall}).
  */
 public final class AutoTest {
 
@@ -32,6 +33,7 @@ public final class AutoTest {
     private static final String PROP_BOSSES = "bossphysics.autotest";
     private static final String PROP_SECONDS = "bossphysics.autotest.seconds";
     private static final String PROP_MODE = "bossphysics.autotest.mode";
+    private static final String PROP_WALL = "bossphysics.autotest.wall";
     private static final long SETTLE_MS = 8000;
     // Evils Protector despawns after 100 ticks (5s) with no player within 1280 pixels.
     private static final long AWAY_MS = 4000;
@@ -46,6 +48,7 @@ public final class AutoTest {
     private static long fightMs;
     private static boolean exitWhenDone;
     private static boolean walled;
+    private static boolean arenaBuilt;
     private static long phaseStart;
     private static String current;
     private static Mob boss;
@@ -105,14 +108,14 @@ public final class AutoTest {
                 client.playerMob.hasInvincibility = true;
                 int tileX = client.playerMob.getTileX();
                 int tileY = client.playerMob.getTileY();
+                if (walled) {
+                    // Spawn is inside the elder's village, a settlement, where walls are protected by default.
+                    tileX = TestArena.findSpotOutsideSettlements(client.getLevel(), tileX, tileY);
+                    arenaBuilt = false;
+                }
                 homeX = tileX * 32 + 16;
                 homeY = tileY * 32 + 16;
-                if (walled) {
-                    TestArena.build(client.getLevel(), tileX, tileY);
-                    AttackAudit.setInsideArea(TestArena.wallBounds(tileX, tileY));
-                    BossSpawner.teleport(client, homeX, homeY);
-                    log("built walled arena at tile " + tileX + "," + tileY);
-                }
+                BossSpawner.teleport(client, homeX, homeY);
                 enter(Phase.SETTLE);
                 break;
             case SETTLE:
@@ -121,6 +124,16 @@ public final class AutoTest {
                 if (queue.isEmpty()) {
                     finish();
                     break;
+                }
+                if (walled && !arenaBuilt) {
+                    // Built after SETTLE so the regions around the new spot are generated and will not overwrite it.
+                    String wall = System.getProperty(PROP_WALL, "stonewall");
+                    int arenaX = homeX / 32;
+                    int arenaY = homeY / 32;
+                    TestArena.build(client.getLevel(), arenaX, arenaY, wall);
+                    AttackAudit.setInsideArea(TestArena.wallBounds(arenaX, arenaY));
+                    arenaBuilt = true;
+                    log("built walled arena at tile " + arenaX + "," + arenaY + " with " + wall);
                 }
                 current = queue.poll();
                 ensureNight(server);
@@ -181,6 +194,7 @@ public final class AutoTest {
         try {
             for (String line : AttackAudit.dump()) log(line);
             for (String line : AttackAudit.summarizeHits()) log(line);
+            for (String line : AttackAudit.summarizeWallDamage()) log(line);
         } catch (IOException e) {
             log("could not write audit: " + e.getMessage());
         }

@@ -4,6 +4,7 @@ import java.awt.Rectangle;
 import necesse.engine.network.server.Server;
 import necesse.engine.registries.ObjectRegistry;
 import necesse.engine.registries.TileRegistry;
+import necesse.engine.world.worldData.SettlementsWorldData;
 import necesse.level.maps.Level;
 
 /**
@@ -20,16 +21,35 @@ public final class TestArena {
     private TestArena() {
     }
 
+    /**
+     * Returns a tile X, east of {@code tileX} on the same row, whose whole cleared square lies outside every
+     * settlement (settlements are tracked per region, so every corner is checked).
+     */
+    public static int findSpotOutsideSettlements(Level level, int tileX, int tileY) {
+        SettlementsWorldData settlements = SettlementsWorldData.getSettlementsData(level.getServer());
+        if (settlements == null) return tileX;
+        for (int x = tileX; x < tileX + 64 * 50; x += 64) {
+            boolean clear = true;
+            for (int dx = -CLEAR_RADIUS; dx <= CLEAR_RADIUS && clear; dx += CLEAR_RADIUS) {
+                for (int dy = -CLEAR_RADIUS; dy <= CLEAR_RADIUS && clear; dy += CLEAR_RADIUS) {
+                    if (settlements.hasSettlementAtTile(level, x + dx, tileY + dy)) clear = false;
+                }
+            }
+            if (clear) return x;
+        }
+        return tileX;
+    }
+
     /** The wall ring and everything inside it, in level pixels. */
     public static Rectangle wallBounds(int centerTileX, int centerTileY) {
         int size = (WALL_RADIUS * 2 + 1) * 32;
         return new Rectangle((centerTileX - WALL_RADIUS) * 32, (centerTileY - WALL_RADIUS) * 32, size, size);
     }
 
-    public static void build(Level level, int centerTileX, int centerTileY) {
+    public static void build(Level level, int centerTileX, int centerTileY, String wallID) {
         Server server = level.getServer();
         int grass = TileRegistry.getTileID("grasstile");
-        int wall = ObjectRegistry.getObjectID("stonewall");
+        int wall = ObjectRegistry.getObjectID(wallID);
         for (int dy = -CLEAR_RADIUS; dy <= CLEAR_RADIUS; dy++) {
             for (int dx = -CLEAR_RADIUS; dx <= CLEAR_RADIUS; dx++) {
                 int x = centerTileX + dx;

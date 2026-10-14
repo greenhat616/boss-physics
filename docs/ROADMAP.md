@@ -62,16 +62,21 @@
 
 ### M2 弹体撞墙造成伤害
 
-- [ ] patch `Projectile.onHit` 的入口：服务端且 `mob == null && object != null && rule.breaksWalls` 时，对 `object.tileX/tileY` 调用 `doObjectDamage`
-  - 伤害 = 弹体伤害 × `wallDamageMultiplier`（默认 1.0）
-  - `toolTier` 取 boss 对应的档位（见第 4 节）
-  - attacker = 弹体，client = null
-- [ ] 层（layer）：先只处理 layer 0，即墙、门、物件所在层
-- [ ] 同一个弹体对同一格只造成一次伤害（复用 `hasHit(tileX, tileY)` / `addHit`）
-- [ ] 定居点判断：在定居点范围内且 `damageInSettlements = false` 时跳过
-- [ ] 确认拆掉的墙会不会掉落物品，掉落是否合理
+- [x] patch `Projectile.onHit` 的入口（`ProjectileOnHitPatch` → `WallDamage`）：服务端、命中的是墙、弹体规则 `breaksWalls` 时，对该格调用 `doObjectDamage`
+  - 伤害 = 弹体伤害 × `wallDamageMultiplier`（默认 1.0，`-Dbossphysics.wallDamageMultiplier`）
+  - `toolTier` 取 `BossTiers`（暂定：Evils Protector / Queen Spider 1，Swamp Guardian 2，Crystal Dragon 6，其他 1）
+  - attacker = 弹体，client = null；只处理 layer 0
+- [x] **延迟 250 毫秒再扣墙**（`-Dbossphysics.wallDamageDelayMs`）：服务端的弹体模拟比客户端快，立即拆墙会让客户端的同一枚弹体在墙消失后穿过去。延迟后两端撞墙次数恢复一致
+- [x] 同一枚弹体对同一格只造成一次伤害：首批白名单弹体撞墙即消失、不反弹，天然满足；以后加入会反弹的弹体时再处理
+- [x] 定居点内默认不拆墙（`-Dbossphysics.damageInSettlements=true` 打开）。实测意外验证了：新世界出生点的长老村子整片都登记为定居点，在那里测试时所有撞墙都被跳过
+- [x] 拆掉的墙掉落物品：原版 `onDestroyed` 在 client 为 null 时照样掉落（读代码确认，测试里没有专门检查掉落物）
+- [x] 自动测试：墙盒自动挪到定居点以外；可选墙的种类（`tools/autotest.sh ... walled on <墙ID>`）；汇总每种弹体对每种墙"造成伤害 / 拆掉 / 被拒绝"的次数
 
-验收：测试 boss 能逐步打穿木墙和石墙；打不穿地牢墙和更高级的墙（取决于档位）；受保护的场地墙不受影响；定居点默认不受影响。
+验收（2026-10-14 单人实测，详见审计文档第 7 节）：
+- [x] 能逐步打穿石墙：Evils Protector 每 4～5 发拆一面，Crystal Dragon 一发一面
+- [x] 等级不够打不动：Evils Protector（1 级）对深石墙（2 级）31 次全部被拒绝；Crystal Dragon（6 级）照样能拆
+- [x] 受保护地块、定居点不受影响：定居点已实测；受保护地块（boss 场地、地牢）由原版接口处理，未专门实测
+- [ ] 联机实测
 
 ### M3 boss 爆炸拆墙
 
@@ -88,6 +93,36 @@
 - [ ] 写 README，以及创意工坊的 `description.bbcode`
 
 验收：所有开关都能在不重启的情况下生效（至少独立服务器上 `/bp reload` 可用）。
+
+### M5 平衡性调整
+
+原型（M1～M4）跑通后再做，目标是"躲在墙后"不能成为无代价的打法，同时 boss 战不被墙体机制搞得拖沓。
+
+**A. boss 召唤物攻击墙后的玩家**（2026-10-14 提出）
+
+目前 boss 召唤出来的小怪（水晶傀儡、蜘蛛幼崽、Evils Protector 的传送门小怪等）不算 boss，不受白名单影响，也不会主动拆墙。目标行为：
+
+| 情况 | 召唤物行为 |
+|---|---|
+| 只是半个掩体，有路可绕 | 绕过去打，不拆墙 |
+| 被完全围住，召唤物有近战能力且有门 | 优先破门 |
+| 被完全围住，召唤物有近战能力但没有门 | 拆墙 |
+| 召唤物有远程能力，视线被墙挡住 | 优先射击挡在中间的墙 |
+
+- [ ] 识别"boss 召唤物"：记录由 boss 生成的怪物（召唤用弹体落点生成的、AI 召唤的），给它们打标记
+- [ ] 近战召唤物：加上原版的 `BuffModifiers.CAN_BREAK_OBJECTS`。原版寻路已有"拆除代价"（`getBreakDownPathCost` = 耐久 × 2.5，墙约 250，门更低），所以会自然地先绕路、再破门、最后拆墙。需要实测是否符合预期，以及拆墙速度
+- [ ] 远程召唤物：原版远程 AI 通常只在视线畅通时开火（例如 Swamp Guardian 的剃刀会先检查视线）。需要加一个 AI 节点：目标被墙挡住时，找出视线上的第一面墙并朝它开火；它们的弹体也要进白名单，规则同 M1/M2
+- [ ] 判断"半个掩体"：寻路能到达目标（不需要拆东西）就视为半掩体，按原版行为绕路
+- [ ] 自动测试加两种布局：半掩体（三面墙）、带门的全封闭墙盒
+
+**B. 数值与边界情况**
+
+- [ ] 墙伤害倍率：目前 = 弹体伤害 × 1.0，Crystal Dragon 的碎片（115）一发拆一面石墙（耐久 100），Evils Protector（19～25）要 4～5 发。根据实测手感调整，或者改成按 boss 单独设倍率
+- [ ] boss 工具等级表 `BossTiers`：目前是暂定值，要按 boss 进度排完整
+- [ ] 墙体完全打不坏（等级不够、受保护地块）时，boss 会一直打不到人，要不要给 boss 别的应对（例如让召唤物处理，或者原版的逃跑计时照常生效）
+- [ ] boss 从头顶飞过时在墙内生成的弹体能打中人（M1 实测的现象），确认是否接受
+- [ ] 白名单弹体会被树、石头等所有带碰撞箱的物体挡住，森林里打 boss 是否变得太容易
+- [ ] 定居点保护：定居点按"区域"登记，范围比肉眼看到的大（新世界出生点的长老村子整片都算），确认这个粒度是否合适
 
 ## 4. 配置项（草案）
 
