@@ -1,0 +1,17 @@
+[settingsui]
+bossphysicssection=Boss Physics Boss 物理
+bossphysicsenabled=启用 Boss Physics
+bossphysicsserverhint=这些是服务器设置：只能在主菜单修改；联机时以服务器的设置为准。在世界里，管理员可以修改设置文件后用 /bp reload 生效。
+bossphysicsattackssection=墙与 boss 攻击
+bossphysicsblockprojectiles=墙挡住列表中的 boss 弹体
+bossphysicsprojectilesbreakwalls=这些弹体会打坏撞到的墙
+bossphysicsexplosionsbreakwalls=列表中的 boss 爆炸会破坏物体
+bossphysicssummonsbreakwalls=boss 召唤物会破门拆墙来找你
+bossphysicsdamageinsettlements=定居点内也会拆墙
+bossphysicsdamagesection=对墙的伤害
+bossphysicswalldamagepercent=弹体对墙的伤害（弹体伤害的 %）
+bossphysicsmaxwallfractionpercent=一发弹体最多扣掉墙耐久的 %
+bossphysicsexplosiondamagepercent=爆炸对物体的伤害（爆炸伤害的 %）
+bossphysicssummondoorhits=召唤物打几下破门（0 = 按原版伤害慢慢拆）
+bossphysicssummondamagepercent=召唤物每下拆墙伤害（10 点的 %）
+bossphysicsfilehint=哪些 boss、弹体、爆炸、召唤物受影响，boss 的工具等级和能打坏的物体类别，都在 cfg/mods/a632079.bossphysics.cfg 里。改平衡前请先跑平衡性测试。

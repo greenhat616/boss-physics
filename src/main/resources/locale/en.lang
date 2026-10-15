@@ -1,0 +1,17 @@
+[settingsui]
+bossphysicssection=Boss Physics
+bossphysicsenabled=Enable Boss Physics
+bossphysicsserverhint=These are server settings: they can only be changed from the main menu, and in multiplayer the server's settings apply to everyone. In a world, admins can edit the file and use /bp reload.
+bossphysicsattackssection=Walls and boss attacks
+bossphysicsblockprojectiles=Walls stop listed boss projectiles
+bossphysicsprojectilesbreakwalls=Those projectiles damage the walls they hit
+bossphysicsexplosionsbreakwalls=Listed boss explosions damage objects
+bossphysicssummonsbreakwalls=Boss summons break doors and walls to reach you
+bossphysicsdamageinsettlements=Also damage walls inside settlements
+bossphysicsdamagesection=Wall damage
+bossphysicswalldamagepercent=Projectile wall damage (% of the projectile's damage)
+bossphysicsmaxwallfractionpercent=Most a single projectile can take off a wall (% of its health)
+bossphysicsexplosiondamagepercent=Explosion damage to objects (% of the explosion's damage)
+bossphysicssummondoorhits=Summon hits that break a door (0 = vanilla damage only)
+bossphysicssummondamagepercent=Summon wall damage per hit (% of 10)
+bossphysicsfilehint=Which bosses, projectiles, explosions and summons are affected, boss tool tiers and breakable object types are in cfg/mods/a632079.bossphysics.cfg. Test balance changes with the balance test before using them.

@@ -99,6 +99,16 @@ public final class BossPhysicsConfig {
         current = config;
     }
 
+    /**
+     * New settings for this machine's file from the settings page. Unlike {@link #setLocal}, settings received from a
+     * remote server stay in force until this machine's are used again.
+     */
+    public static synchronized void updateLocal(BossPhysicsConfig config) {
+        boolean localInForce = current == local;
+        local = config;
+        if (localInForce) current = config;
+    }
+
     /** The remote server's settings; they take effect until this machine's file is used again. */
     public static void setFromServer(BossPhysicsConfig config) {
         current = config;
@@ -240,19 +250,24 @@ public final class BossPhysicsConfig {
     }
 
     public void addSaveData(SaveData save) {
-        save.addBoolean("enabled", enabled, "Master switch; false restores vanilla behaviour");
-        save.addBoolean("blockProjectiles", blockProjectiles, "Walls stop the projectiles listed in PROJECTILES");
-        save.addBoolean("projectilesBreakWalls", projectilesBreakWalls, "Listed projectiles damage the wall they hit");
-        save.addBoolean("explosionsBreakWalls", explosionsBreakWalls, "Explosions listed in EXPLOSIONS damage objects");
-        save.addBoolean("summonsBreakWalls", summonsBreakWalls, "Boss summons break doors and walls to reach players");
-        save.addBoolean("damageInSettlements", damageInSettlements, "Also damage walls inside settlements");
-        save.addFloat("wallDamageMultiplier", wallDamageMultiplier, "Wall damage = projectile damage x this");
-        save.addFloat("maxWallDamageFraction", maxWallDamageFraction, "One projectile hit takes at most this share of a wall's health");
-        save.addFloat("explosionWallDamageMultiplier", explosionWallDamageMultiplier, "Object damage = explosion damage x this");
-        save.addInt("wallDamageDelayMs", wallDamageDelayMs, "Delay before a hit wall takes damage, so clients see the hit first");
-        save.addInt("summonDoorHits", summonDoorHits, "Hits by boss summons that break a door open; 0 = vanilla damage");
-        save.addFloat("summonWallDamageMultiplier", summonWallDamageMultiplier, "Boss summons' wall damage per hit = 10 x this");
-        save.addFloat("defaultBossToolTier", defaultBossToolTier, "Tool tier of bosses not in BOSS_TOOL_TIERS");
+        addSaveData(save, Collections.<String>emptySet());
+    }
+
+    /** Writes every setting except {@code skip} (keys the in-game settings page writes under its own ids). */
+    public void addSaveData(SaveData save, Set<String> skip) {
+        if (!skip.contains("enabled")) save.addBoolean("enabled", enabled, "Master switch; false restores vanilla behaviour");
+        if (!skip.contains("blockProjectiles")) save.addBoolean("blockProjectiles", blockProjectiles, "Walls stop the projectiles listed in PROJECTILES");
+        if (!skip.contains("projectilesBreakWalls")) save.addBoolean("projectilesBreakWalls", projectilesBreakWalls, "Listed projectiles damage the wall they hit");
+        if (!skip.contains("explosionsBreakWalls")) save.addBoolean("explosionsBreakWalls", explosionsBreakWalls, "Explosions listed in EXPLOSIONS damage objects");
+        if (!skip.contains("summonsBreakWalls")) save.addBoolean("summonsBreakWalls", summonsBreakWalls, "Boss summons break doors and walls to reach players");
+        if (!skip.contains("damageInSettlements")) save.addBoolean("damageInSettlements", damageInSettlements, "Also damage walls inside settlements");
+        if (!skip.contains("wallDamageMultiplier")) save.addFloat("wallDamageMultiplier", wallDamageMultiplier, "Wall damage = projectile damage x this");
+        if (!skip.contains("maxWallDamageFraction")) save.addFloat("maxWallDamageFraction", maxWallDamageFraction, "One projectile hit takes at most this share of a wall's health");
+        if (!skip.contains("explosionWallDamageMultiplier")) save.addFloat("explosionWallDamageMultiplier", explosionWallDamageMultiplier, "Object damage = explosion damage x this");
+        if (!skip.contains("wallDamageDelayMs")) save.addInt("wallDamageDelayMs", wallDamageDelayMs, "Delay before a hit wall takes damage, so clients see the hit first");
+        if (!skip.contains("summonDoorHits")) save.addInt("summonDoorHits", summonDoorHits, "Hits by boss summons that break a door open; 0 = vanilla damage");
+        if (!skip.contains("summonWallDamageMultiplier")) save.addFloat("summonWallDamageMultiplier", summonWallDamageMultiplier, "Boss summons' wall damage per hit = 10 x this");
+        if (!skip.contains("defaultBossToolTier")) save.addFloat("defaultBossToolTier", defaultBossToolTier, "Tool tier of bosses not in BOSS_TOOL_TIERS");
         SaveData tiers = new SaveData("BOSS_TOOL_TIERS", "Boss mob ID = tool tier (wood/stone walls 0, dungeon 1, deep stone 2, obsidian 6)");
         for (Map.Entry<String, Float> e : bossToolTiers.entrySet()) tiers.addFloat(e.getKey(), e.getValue());
         save.addSaveData(tiers);
@@ -262,9 +277,9 @@ public final class BossPhysicsConfig {
         SaveData projectileData = new SaveData("PROJECTILES", "Projectile ID = BLOCKED (stopped, breaks walls) | SHIELDED (stopped only) | BOUNCE (bounces, breaks walls)");
         for (Map.Entry<String, ProjectileRule> e : projectiles.entrySet()) projectileData.addUnsafeString(e.getKey(), e.getValue().name());
         save.addSaveData(projectileData);
-        save.addStringList("EXPLOSIONS", new ArrayList<>(explosions), "Explosion event IDs that break objects when a boss owns them");
-        save.addStringList("SUMMONS", new ArrayList<>(summons), "Mob IDs that break doors and walls when a boss summoned them");
-        save.addStringList("BREAKABLE_OBJECTS", new ArrayList<>(breakableObjects),
+        if (!skip.contains("EXPLOSIONS")) save.addStringList("EXPLOSIONS", new ArrayList<>(explosions), "Explosion event IDs that break objects when a boss owns them");
+        if (!skip.contains("SUMMONS")) save.addStringList("SUMMONS", new ArrayList<>(summons), "Mob IDs that break doors and walls when a boss summoned them");
+        if (!skip.contains("BREAKABLE_OBJECTS")) save.addStringList("BREAKABLE_OBJECTS", new ArrayList<>(breakableObjects),
             "What boss attacks may damage: walls, doors, windows, fences, trees, rocks, containers, furniture");
     }
 
@@ -284,7 +299,32 @@ public final class BossPhysicsConfig {
         return tier != null ? tier : defaultBossToolTier;
     }
 
-    private static final class Builder {
+    /** A copy of this snapshot to change (the settings page). */
+    Builder toBuilder() {
+        Builder b = new Builder();
+        b.enabled = enabled;
+        b.blockProjectiles = blockProjectiles;
+        b.projectilesBreakWalls = projectilesBreakWalls;
+        b.explosionsBreakWalls = explosionsBreakWalls;
+        b.summonsBreakWalls = summonsBreakWalls;
+        b.damageInSettlements = damageInSettlements;
+        b.wallDamageMultiplier = wallDamageMultiplier;
+        b.explosionWallDamageMultiplier = explosionWallDamageMultiplier;
+        b.wallDamageDelayMs = wallDamageDelayMs;
+        b.summonDoorHits = summonDoorHits;
+        b.summonWallDamageMultiplier = summonWallDamageMultiplier;
+        b.defaultBossToolTier = defaultBossToolTier;
+        b.bossToolTiers.putAll(bossToolTiers);
+        b.bossWallDamage.putAll(bossWallDamage);
+        b.projectiles.putAll(projectiles);
+        b.explosions.addAll(explosions);
+        b.summons.addAll(summons);
+        b.breakableObjects.addAll(breakableObjects);
+        b.maxWallDamageFraction = maxWallDamageFraction;
+        return b;
+    }
+
+    static final class Builder {
         boolean enabled = true;
         boolean blockProjectiles = true;
         boolean projectilesBreakWalls = true;
@@ -304,5 +344,9 @@ public final class BossPhysicsConfig {
         final Set<String> summons = new LinkedHashSet<>();
         final Set<String> breakableObjects = new LinkedHashSet<>();
         float maxWallDamageFraction = 0.25F;
+
+        BossPhysicsConfig build() {
+            return new BossPhysicsConfig(this);
+        }
     }
 }

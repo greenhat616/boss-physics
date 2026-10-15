@@ -1,6 +1,7 @@
 package bossphysics.commands;
 
 import bossphysics.config.BossPhysicsConfig;
+import bossphysics.config.BossPhysicsSettings;
 import bossphysics.config.ConfigSync;
 import bossphysics.debug.AttackAudit;
 import bossphysics.debug.AutoTest;
@@ -51,6 +52,7 @@ public class BossPhysicsCommand extends ModularChatCommand {
                 break;
             case "reload":
                 String error = BossPhysicsConfig.reloadFromFile();
+                BossPhysicsSettings.pushToPage();
                 if (error != null) {
                     logs.add("Could not read " + BossPhysicsConfig.file() + ", settings unchanged: " + error);
                 } else {

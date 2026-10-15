@@ -25,7 +25,7 @@ CLIENT_DATA="$OUT/client/data"
 
 build_mod
 rm -rf "$OUT"
-write_modlist "$SERVER_DATA"
+write_modlist "$SERVER_DATA" server
 write_modlist "$CLIENT_DATA"
 write_mod_config "$SERVER_DATA" "" "$@"
 write_client_settings "$CLIENT_DATA"
@@ -70,7 +70,10 @@ sleep 8   # let the client's autosave catch up
 powershell -NoProfile -Command \
     "Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { \$_.CommandLine -like '*autotest-mp*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }" \
     || true
-pkill -f "sleep 100000" 2>/dev/null || true
+# Git Bash on Windows has no pkill: the stdin feeder would keep this script's output open.
+powershell -NoProfile -Command \
+    "Get-CimInstance Win32_Process -Filter \"Name='sleep.exe'\" | Where-Object { \$_.CommandLine -like '*100000*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }" \
+    || true
 
 echo "== server"
 print_audit_lines "$OUT/server.log" | grep -a "autotest \(started\|built\|hits\|walldamage \|DONE\)" || true

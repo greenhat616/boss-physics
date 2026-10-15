@@ -44,29 +44,31 @@ Necesse 1.3.3 Mod：让 boss 的攻击遵守基本的物理规则。墙能挡住
 
 ## 设置
 
-保存在 `cfg/mods/a632079.bossphysics.cfg`（游戏第一次启动时按默认值生成，每项都有注释）。
+**游戏内：** 设置 → Mod 设置 → Boss Physics（由 [Mod Settings Lib](https://steamcommunity.com/sharedfiles/filedetails/?id=3558238376) 提供）：各项开关和伤害倍率（倍率显示为百分比）。它们是服务器设置，只能在主菜单修改；进入世界后显示为灰色。
 
-| 键 | 默认值 | 说明 |
-|---|---|---|
-| `enabled` | true | 总开关，false 时完全恢复原版行为 |
-| `blockProjectiles` | true | 墙挡住 `PROJECTILES` 里的弹体 |
-| `projectilesBreakWalls` | true | 这些弹体撞墙时造成伤害 |
-| `explosionsBreakWalls` | true | `EXPLOSIONS` 里的爆炸破坏物体 |
-| `summonsBreakWalls` | true | `SUMMONS` 里的召唤物破门拆墙 |
-| `damageInSettlements` | false | 定居点内是否也拆墙 |
-| `wallDamageMultiplier` | 1.0 | 弹体对墙的伤害 = 弹体伤害 × 此值 |
-| `maxWallDamageFraction` | 0.25 | 一发弹体最多扣掉墙耐久的这个比例 |
-| `explosionWallDamageMultiplier` | 1.0 | 爆炸对物体的伤害 = 爆炸伤害 × 此值 |
-| `summonDoorHits` | 5 | 门被召唤物打多少下就破开；0 = 按原版伤害慢慢拆 |
-| `summonWallDamageMultiplier` | 2.0 | 召唤物拆墙每下的伤害 = 10 × 此值 |
-| `wallDamageDelayMs` | 250 | 弹体撞墙后延迟多久才扣墙的耐久，让联机客户端先看到撞墙（不建议改） |
-| `defaultBossToolTier` | 1.0 | 没有单独设置的 boss 用的工具等级 |
-| `BOSS_TOOL_TIERS` | 见上 | boss 的 mob ID = 工具等级 |
-| `BOSS_WALL_DAMAGE` | `thevoid = 0.5` | boss 的 mob ID = 它的弹体和爆炸对墙伤害的额外倍率 |
-| `PROJECTILES` | 20 种 | 弹体 ID = `BLOCKED`（挡住并拆墙）/ `SHIELDED`（只挡不拆）/ `BOUNCE`（反弹并拆墙）/ `VANILLA`（原版） |
-| `EXPLOSIONS` | 2 种 | 爆炸事件 ID 列表 |
-| `SUMMONS` | 5 种 | 召唤物的 mob ID 列表 |
-| `BREAKABLE_OBJECTS` | 全部 8 类 | 能被打坏的物体：`walls`、`doors`、`windows`、`fences`、`trees`、`rocks`、`containers`（有物品栏的：箱子、柜子等）、`furniture`（其余所有物体） |
+**设置文件：** `cfg/mods/a632079.bossphysics.cfg`（游戏第一次启动时按默认值生成）。设置页上的选项在文件里用设置页的 id 保存（下表第二列，倍率存为百分比），其余选项（白名单、工具等级等）只能在文件里改。旧版本文件里用旧键名保存的值，会在加载时迁移；文件里同时有旧键名和设置页 id 时，旧键名优先（保存时只写设置页 id，所以旧键名一定是之后手动写进去的）。
+
+| 键 | 设置页 id（文件里的键） | 默认值 | 说明 |
+|---|---|---|---|
+| `enabled` | `bossphysicsenabled` | true | 总开关，false 时完全恢复原版行为 |
+| `blockProjectiles` | `bossphysicsblockprojectiles` | true | 墙挡住 `PROJECTILES` 里的弹体 |
+| `projectilesBreakWalls` | `bossphysicsprojectilesbreakwalls` | true | 这些弹体撞墙时造成伤害 |
+| `explosionsBreakWalls` | `bossphysicsexplosionsbreakwalls` | true | `EXPLOSIONS` 里的爆炸破坏物体 |
+| `summonsBreakWalls` | `bossphysicssummonsbreakwalls` | true | `SUMMONS` 里的召唤物破门拆墙 |
+| `damageInSettlements` | `bossphysicsdamageinsettlements` | false | 定居点内是否也拆墙 |
+| `wallDamageMultiplier` | `bossphysicswalldamagepercent`（%） | 1.0 | 弹体对墙的伤害 = 弹体伤害 × 此值 |
+| `maxWallDamageFraction` | `bossphysicsmaxwallfractionpercent`（%） | 0.25 | 一发弹体最多扣掉墙耐久的这个比例 |
+| `explosionWallDamageMultiplier` | `bossphysicsexplosiondamagepercent`（%） | 1.0 | 爆炸对物体的伤害 = 爆炸伤害 × 此值 |
+| `summonDoorHits` | `bossphysicssummondoorhits` | 5 | 门被召唤物打多少下就破开；0 = 按原版伤害慢慢拆 |
+| `summonWallDamageMultiplier` | `bossphysicssummondamagepercent`（%） | 2.0 | 召唤物拆墙每下的伤害 = 10 × 此值 |
+| `wallDamageDelayMs` | 仅文件 | 250 | 弹体撞墙后延迟多久才扣墙的耐久，让联机客户端先看到撞墙（不建议改） |
+| `defaultBossToolTier` | 仅文件 | 1.0 | 没有单独设置的 boss 用的工具等级 |
+| `BOSS_TOOL_TIERS` | 仅文件 | 见上 | boss 的 mob ID = 工具等级 |
+| `BOSS_WALL_DAMAGE` | 仅文件 | `thevoid = 0.5` | boss 的 mob ID = 它的弹体和爆炸对墙伤害的额外倍率 |
+| `PROJECTILES` | 仅文件 | 20 种 | 弹体 ID = `BLOCKED`（挡住并拆墙）/ `SHIELDED`（只挡不拆）/ `BOUNCE`（反弹并拆墙）/ `VANILLA`（原版） |
+| `EXPLOSIONS` | 仅文件 | 2 种 | 爆炸事件 ID 列表 |
+| `SUMMONS` | 仅文件 | 5 种 | 召唤物的 mob ID 列表 |
+| `BREAKABLE_OBJECTS` | 仅文件 | 全部 8 类 | 能被打坏的物体：`walls`、`doors`、`windows`、`fences`、`trees`、`rocks`、`containers`（有物品栏的：箱子、柜子等）、`furniture`（其余所有物体） |
 
 修改后在游戏里输入 `/bp reload` 立即生效（独立服务器控制台可省略 `/`）。联机时以服务器的设置为准：服务器在玩家加入时和 `/bp reload` 后把设置发给所有客户端，客户端自己的文件只在单人游戏和自己主持世界时使用。
 
@@ -86,6 +88,12 @@ Necesse 1.3.3 Mod：让 boss 的攻击遵守基本的物理规则。墙能挡住
 
 ## 构建与测试
 
+编译前先把 Mod Settings Lib 的 jar 复制到 `mods/`（模板会把这个目录加进 classpath，但不会打包进本 Mod；该目录在 `.gitignore` 里）：
+
+```bash
+cp "<Steam>/steamapps/workshop/content/1169040/3558238376/ModSettingsLib-1.0.2-1.2.7.jar" mods/
+```
+
 ```bash
 # 需要 JDK 17+ 来运行 Gradle（字节码目标为 Java 8）
 ./gradlew buildModJar                      # 输出 build/jar/BossPhysics-1.3.3-<版本>.jar
@@ -96,10 +104,13 @@ tools/autotest.sh --mode walled ...        # 单人墙盒测试，选项见脚�
 tools/autotest-mp.sh [bosses] [秒数]      # 独立服务器 + 客户端的联机测试
 ```
 
-所有玩家都需要安装本 Mod（`clientside = false`）：客户端也要模拟弹体，两端对"哪些弹体被墙挡住"的判断必须一致。
+测试脚本会启用 Mod Settings Lib：客户端用创意工坊里订阅的版本，独立服务器则把它复制进临时数据目录的 `mods/`。
+
+所有玩家和服务器都需要安装本 Mod 和 Mod Settings Lib（两者都是 `clientside = false`）：客户端也要模拟弹体，两端对"哪些弹体被墙挡住"的判断必须一致。独立服务器需要把 Mod Settings Lib 的 jar 放进它的 `mods/` 文件夹。
 
 ## 文档
 
+- [docs/workshop/PUBLISHING.md](docs/workshop/PUBLISHING.md)：发布到 Steam 创意工坊（含截图的拍摄方法）
 - [docs/ROADMAP.md](docs/ROADMAP.md)：设计、里程碑和待办
 - [docs/balance.md](docs/balance.md)：平衡性测试的布局、统计口径和判定标准
 - [docs/projectile-audit.md](docs/projectile-audit.md)：弹体审计和各阶段的测试结果

@@ -230,7 +230,9 @@ public final class AutoTest {
     }
 
     private static void startFight(Server server, ServerClient client) {
-        ensureNight(server);
+        // Screenshots want daylight; Evils Protector still needs the night (it leaves during the day).
+        if (DAYTIME && !"evilsprotector".equals(current.boss)) ensureDay(server);
+        else ensureNight(server);
         BossSpawner.teleport(client, homeX, homeY);
         if (current.layout != null) {
             // Built after SETTLE so the regions around the new spot are generated and will not overwrite it.
@@ -289,6 +291,17 @@ public final class AutoTest {
             .filter(m -> !m.isPlayer && m.isHostile && m.getDistance(homeX, homeY) < CLEANUP_RANGE)
             .forEach(leftovers::add);
         for (Mob m : leftovers) m.remove();
+    }
+
+    /** {@code -Dbossphysics.autotest.daytime=true} (screenshots): fight at midday when the boss allows it. */
+    private static final boolean DAYTIME = Boolean.getBoolean("bossphysics.autotest.daytime");
+
+    private static void ensureDay(Server server) {
+        if (!server.world.worldEntity.isNight()) return;
+        long oldTime = server.world.worldEntity.getWorldTime();
+        server.world.setMidday();
+        server.world.simulateWorldTime(server.world.worldEntity.getWorldTime() - oldTime, true);
+        log("time set to midday");
     }
 
     /** Some bosses (Evils Protector) leave during the day; jump to midnight the way {@code /time midnight} does. */

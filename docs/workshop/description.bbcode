@@ -1,77 +1,61 @@
 [h1]Boss Physics[/h1]
-[b]Walls stop boss attacks, and bosses break walls.[/b]
-Hiding behind a wall now protects you, but only for a while.
+[b]Walls stop boss attacks, and bosses break walls.[/b] Hiding behind a wall protects you, but only for a while.
+Requires [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3558238376]Mod Settings Lib[/url]. Every player and the server need both.
 
 [h2]Features[/h2]
 [list]
-[*][b]Walls block direct fire[/b]: whitelisted boss projectiles (Evils Protector's bolts, Crystal Dragon's shards, ...) stop at the first wall instead of flying through it. Lobbed attacks (spider spit, eggs, boulders) still arc over walls.
-[*][b]Projectiles damage walls[/b]: every hit chips away at the wall until it breaks. Broken walls drop their item as usual.
-[*][b]Explosions break walls[/b]: Swamp Guardian's boulders blast objects around where they land.
-[*][b]Summons dig in[/b]: portal minions, spider hatchlings and crystal golems that cannot reach you walk around half cover, break the door of a closed room (5 hits), and break a wall only when there is no door.
-[*][b]Tool tiers[/b]: each boss can only break walls up to its tier. Early bosses break wood, stone, brick and dungeon walls; Swamp Guardian also deep stone; Crystal Dragon also obsidian.
-[*][b]Nothing is a free shelter[/b]: furniture and chests can be broken too (a broken chest drops everything inside). Each category can be turned off in the settings.
-[*][b]Safe places stay safe[/b]: no wall damage inside settlements by default; protected tiles (boss arenas, dungeons) and unbreakable objects are never damaged.
+[*][b]Walls block direct fire[/b]: whitelisted boss projectiles stop at the first wall. Lobbed attacks (spider spit, eggs, boulders) still arc over.
+[*][b]Projectiles break walls[/b]: each hit chips the wall, at most a quarter of its health, so a wall takes at least 4 hits. Broken walls drop their item.
+[*][b]Explosions[/b] (Swamp Guardian's boulders, The Void's void rain) break objects where they land.
+[*][b]Summons dig in[/b]: if they cannot reach you they walk around cover, break the door (5 hits), then walls.
+[*][b]Tool tiers[/b]: each boss only breaks walls up to its progression tier.
+[*][b]Safe places stay safe[/b]: no wall damage in settlements by default; boss arenas, dungeons and unbreakable objects are never damaged.
 [/list]
+
+[h2]Supported bosses[/h2]
+Evils Protector, Queen Spider, Swamp Guardian, Ancient Vulture, Reaper, Cryo Queen, Pest Warden, Sage & Grit, Mother Slime, Night Swarm, Spider Empress, Sunlight Champion, Moonlight Dancer, Crystal Dragon, Mutant Hydra, Ascended Wizard, The Void. Every default passed an automated balance test (open field, closed box, half cover, box with a door).
 
 [h2]Settings[/h2]
-Edit [i]cfg/mods/a632079.bossphysics.cfg[/i] (every key is commented) and run [b]/bp reload[/b]. In multiplayer the server's settings apply to everyone and are sent to clients automatically.
-[list]
-[*]Toggle each mechanic, wall damage multipliers, damage inside settlements
-[*]Tool tier per boss
-[*]Which projectiles, explosions and summons are affected
-[/list]
+Settings > Mod settings > Boss Physics: switches and damage multipliers. Server settings, so they change from the main menu. Whitelists and tool tiers are in [i]cfg/mods/a632079.bossphysics.cfg[/i]; admins apply edits with [b]/bp reload[/b]. In multiplayer the server's settings apply to everyone.
 
 [h2]Commands (admin)[/h2]
-[list]
-[*][b]/bp status[/b]: show the settings in force
-[*][b]/bp reload[/b]: reload the settings file
-[*][b]/bp debug, /bp spawnboss, /bp autotest[/b]: testing tools
-[/list]
+[b]/bp status[/b], [b]/bp reload[/b]; [b]/bp debug, /bp spawnboss, /bp autotest[/b] for testing.
 
-[h2]Notes[/h2]
+[h2]Limits[/h2]
 [list]
-[*]Every player needs the mod: clients simulate projectiles too.
-[*]Lasers, charges and ground AoE attacks still go through walls.
-[*]Big bosses reach over walls: Queen Spider's melee hits players inside a wall ring from outside it (vanilla behaviour, kept for now).
-[*]Every default entry passed an automated balance test (open field, closed box, half cover, box with a door).
+[*]Beams, charges and ground AoE still go through walls; they are not projectiles.
+[*]Big bosses reach over walls in melee (vanilla behaviour).
+[*]Summons keep pushing at walls they cannot break.
 [/list]
 
 [hr][/hr]
 
 [h1]Boss Physics 物理化 Boss[/h1]
-[b]墙能挡住 boss 的攻击，boss 也能把墙打穿。[/b]
-躲在墙后能保护你，但撑不了太久。
+[b]墙能挡住 boss 的攻击，boss 也能把墙打穿。[/b]躲在墙后能保护你，但撑不了太久。
+需要前置 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3558238376]Mod Settings Lib[/url]，服务器和所有玩家都要安装这两个 Mod。
 
 [h2]功能[/h2]
 [list]
-[*][b]墙挡直射[/b]：列入白名单的 boss 弹体（Evils Protector 的弹幕、Crystal Dragon 的碎片等）撞墙即停，不再穿墙。抛物线类攻击（蜘蛛吐液、蛋、巨石）照样飞过墙。
-[*][b]弹体拆墙[/b]：每次命中都会削减墙的耐久，直到打穿。被拆的墙照常掉落物品。
-[*][b]爆炸拆墙[/b]：Swamp Guardian 的巨石落地时会炸毁周围的物体。
-[*][b]召唤物破墙[/b]：传送门小怪、蜘蛛幼崽、水晶傀儡够不到你时，有路就绕过半掩体；被围住时先破门（5 下破开），没有门才拆墙。
-[*][b]工具等级[/b]：每个 boss 只能打坏不超过自己等级的墙。前期 boss 能拆木、石、砖墙和地牢墙；Swamp Guardian 还能拆深石墙；Crystal Dragon 还能拆黑曜石墙。
-[*][b]没有白给的掩体[/b]：家具和箱子也能被打坏（箱子被打坏时里面的东西全部掉出来）。每一类都可以在设置里关掉。
-[*][b]安全区域不受影响[/b]：定居点内默认不拆墙；受保护的地块（boss 场地、地牢）和不可破坏的物体始终打不坏。
+[*][b]墙挡直射[/b]：列入白名单的 boss 弹体撞墙即停。抛物线攻击（蜘蛛吐液、蛋、巨石）照样飞过墙。
+[*][b]弹体拆墙[/b]：每次命中削减墙的耐久，一发最多扣四分之一，所以至少 4 下才能打穿。被拆的墙照常掉落物品。
+[*][b]爆炸拆墙[/b]：Swamp Guardian 的巨石、The Void 的虚空雨落地时破坏周围的物体。
+[*][b]召唤物破墙[/b]：够不到你时先绕过掩体，被围住就先破门（5 下），再拆墙。
+[*][b]工具等级[/b]：每个 boss 只能打坏不超过自己进度等级的墙。
+[*][b]安全区域不受影响[/b]：定居点内默认不拆墙；boss 场地、地牢和不可破坏的物体始终打不坏。
 [/list]
+
+[h2]支持的 boss[/h2]
+上面列出的 17 个 boss。默认设置都通过了自动平衡性测试（空地、封闭墙盒、半掩体、带门的墙盒）。
 
 [h2]设置[/h2]
-编辑 [i]cfg/mods/a632079.bossphysics.cfg[/i]（每项都有注释），然后输入 [b]/bp reload[/b]。联机时以服务器的设置为准，会自动发给所有客户端。
-[list]
-[*]分别开关每种机制，调整墙体伤害倍率，定居点内是否拆墙
-[*]每个 boss 的工具等级
-[*]受影响的弹体、爆炸和召唤物
-[/list]
+设置 → Mod 设置 → Boss Physics：各项开关和伤害倍率。它们是服务器设置，只能在主菜单修改。白名单和工具等级在 [i]cfg/mods/a632079.bossphysics.cfg[/i] 里，管理员改完后用 [b]/bp reload[/b] 生效。联机时以服务器的设置为准。
 
 [h2]指令（管理员）[/h2]
-[list]
-[*][b]/bp status[/b]：显示当前生效的设置
-[*][b]/bp reload[/b]：重新读取设置文件
-[*][b]/bp debug、/bp spawnboss、/bp autotest[/b]：测试工具
-[/list]
+[b]/bp status[/b]、[b]/bp reload[/b]；[b]/bp debug、/bp spawnboss、/bp autotest[/b] 用于测试。
 
-[h2]说明[/h2]
+[h2]限制[/h2]
 [list]
-[*]所有玩家都需要安装：客户端也要模拟弹体。
-[*]激光、冲锋、地面范围攻击仍然穿墙。
-[*]大体型 boss 能隔着墙够到人：Queen Spider 站在墙外，近战照样能打到墙圈里的玩家（原版行为，暂时保留）。
-[*]所有默认条目都通过了自动化平衡性测试（空地、全封闭、半掩体、带门的封闭房间）。
+[*]光束、冲锋和地面范围攻击仍会穿墙，它们不是弹体。
+[*]大体型 boss 的近战能隔墙打到人（原版行为）。
+[*]召唤物遇到打不动的墙会一直撞着它。
 [/list]

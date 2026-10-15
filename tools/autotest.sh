@@ -11,6 +11,8 @@
 #     --wall ID            wall object for the layouts (default stonewall; dungeonwall is tier 1, deepstonewall 2)
 #     --protect            mark the walls as protected tiles, like boss arenas
 #     --config FILE        start from this settings file (cfg/mods/a632079.bossphysics.cfg format)
+#     (env AUTOTEST_SCREENSHOTS=N: a game screenshot every N seconds, saved to build/autotest/data/screenshots/;
+#      AUTOTEST_DAYTIME=true: fight at midday except Evils Protector; AUTOTEST_LANGUAGE=en: game language)
 #     --set key=value      override one setting, e.g. --set blockProjectiles=false (repeatable)
 #
 # Needs Steam running. Output goes to build/autotest/: client.log, data/bossphysics-audit.csv and, for layout runs,
@@ -56,6 +58,7 @@ cd "$OUT/run"
     -Dbossphysics.autotest="$BOSSES" -Dbossphysics.autotest.seconds="$SECONDS_PER_BOSS" \
     -Dbossphysics.autotest.mode="$MODE" -Dbossphysics.autotest.layouts="$LAYOUTS" \
     -Dbossphysics.autotest.wall="$WALL" -Dbossphysics.autotest.protectWalls="$PROTECT" \
+    -Dbossphysics.autotest.screenshots="${AUTOTEST_SCREENSHOTS:-0}" -Dbossphysics.autotest.daytime="${AUTOTEST_DAYTIME:-false}" \
     -cp "$GAME_DIR/Necesse.jar" StartSteamClient \
     -datadir "$DATA" -load bptest -character BossTester -mod "$ROOT/build/jar" \
     > "$OUT/client.log" 2>&1 || true
