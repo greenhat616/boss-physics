@@ -8,9 +8,10 @@ Necesse 没有独立的上传工具，上传在**游戏内**完成：用开发�
 |---|---|
 | `src/main/resources/preview.png` | 640×640 封面，打进 jar 的 `resources/preview.png`，上传时自动作为创意工坊封面。**jar 里没有这张图时，游戏不显示上传按钮**（`SteamDevModProvider` 中 `mod.preview != null` 是显示条件） |
 | `docs/workshop/description.bbcode` | 创意工坊描述（Steam BBCode，中英双语，约 4000 字符；游戏上传框上限 5000 字符） |
-| `docs/workshop/images/01-crystaldragon.png` 等 4 张 | 1280×720 游戏截图加中英文说明条，在 Steam 网页上作为附加图片 |
+| `docs/workshop/images/00-overview.png` | 1280×720 像素风示意图卡片（与本仓库其他 Mod 的卡片版式相同），作为第一张附加图片 |
+| `docs/workshop/images/01-crystaldragon.png` 等 4 张 | 1280×720 游戏截图加中英文说明条，排在示意图卡片之后 |
 | `docs/workshop/screenshots/` | 原始游戏截图（没有说明条），也可以直接上传 |
-| `tools/make_workshop_images.py` | 从原始截图生成封面和带说明条的图：`python tools/make_workshop_images.py .`（需要 Pillow 和 Windows 自带字体）。说明条里的数字来自拍摄那一次测试的日志 |
+| `tools/make_workshop_images.py` | 生成封面、示意图卡片和带说明条的截图：`python tools/make_workshop_images.py .`（需要 Pillow 和 Windows 自带字体）。说明条里的数字来自拍摄那一次测试的日志 |
 
 ### 截图是怎么拍的
 
@@ -51,7 +52,7 @@ AUTOTEST_SCREENSHOTS=3 AUTOTEST_DAYTIME=true AUTOTEST_LANGUAGE=en \
 
 5. 看到「成功地创建/更新了模组」后，到 Steam 网页上完成其余设置：
    - **必需物品**：「添加/移除必需物品」→ 添加 **Mod Settings Lib**（`3558238376`）。
-   - **图片和视频**：上传 `docs/workshop/images/` 下的 4 张图。
+   - **图片和视频**：按顺序上传 `docs/workshop/images/` 下的 5 张图：先 `00-overview.png`，再 4 张截图。
    - **可见性**：先设为「仅好友」联机测一次，再改成「公开」。
    - 新上传的物品需要接受过 Steam 创意工坊法律协议，否则只有你自己能看到。
 
