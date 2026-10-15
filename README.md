@@ -2,6 +2,8 @@
 
 Necesse 1.3.3 Mod：让 boss 的攻击遵守基本的物理规则。墙能挡住 boss 的直射弹体，但 boss 也会把墙打穿。
 
+Steam 创意工坊：<https://steamcommunity.com/sharedfiles/filedetails/?id=3820117285>
+
 ## 效果
 
 | 机制 | 说明 |
