@@ -6,9 +6,9 @@ Necesse 没有独立的上传工具，上传在**游戏内**完成：用开发�
 
 | 文件 | 用途 |
 |---|---|
-| `src/main/resources/preview.png` | 640×640 封面，打进 jar 的 `resources/preview.png`，上传时自动作为创意工坊封面。**jar 里没有这张图时，游戏不显示上传按钮**（`SteamDevModProvider` 中 `mod.preview != null` 是显示条件） |
+| `src/main/resources/preview.png` | 640×640 像素风封面（夜空、草地、像素小人，标题字体和描边与本仓库其他 Mod 相同），打进 jar 的 `resources/preview.png`，上传时自动作为创意工坊封面。**jar 里没有这张图时，游戏不显示上传按钮**（`SteamDevModProvider` 中 `mod.preview != null` 是显示条件） |
 | `docs/workshop/description.bbcode` | 创意工坊描述（Steam BBCode，中英双语，约 4000 字符；游戏上传框上限 5000 字符） |
-| `docs/workshop/images/00-overview.png` | 1280×720 像素风示意图卡片（与本仓库其他 Mod 的卡片版式相同），作为第一张附加图片 |
+| `docs/workshop/images/00-overview.png` | 1280×720 像素风示意图卡片（与本仓库其他 Mod 的卡片风格和版式相同：夜空背景，左边文字面板，右边像素画），作为第一张附加图片 |
 | `docs/workshop/images/01-crystaldragon.png` 等 4 张 | 1280×720 游戏截图加中英文说明条，排在示意图卡片之后 |
 | `docs/workshop/screenshots/` | 原始游戏截图（没有说明条），也可以直接上传 |
 | `tools/make_workshop_images.py` | 生成封面、示意图卡片和带说明条的截图：`python tools/make_workshop_images.py .`（需要 Pillow 和 Windows 自带字体）。说明条里的数字来自拍摄那一次测试的日志 |
